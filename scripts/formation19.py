@@ -57,10 +57,10 @@ n=0
 ###############################################################################
 #RobotClass:
 ###############################################################################
-class RobotID:
-    name='robot '
+class RobotClass:
+    name=''
     ID= -1
-    IP='192.168.1. '
+    IP=''
     status=''
     current_goal= [[0,0],[0,0],[0,0],[0,0]]
     next_goal= [[0,0],[0,0],[0,0],[0,0]]
@@ -68,7 +68,6 @@ class RobotID:
         self.name = name
         self.ID = ID
         self.status=status
-
     def set_name(self, new_name):
         self.name = new_name
     def set_ID(self, ID):
@@ -81,7 +80,6 @@ class RobotID:
         self.current_goal[self.ID] = cgoal
     def set_next_goal(self, ngoal):
         self.next_goal[self.ID] = ngoal
-
     def get_name(self):
         return self.name
     def get_ID(self):
@@ -123,7 +121,8 @@ def callback_ID (data):
 def callback_satus (data):
     global Robot_status
     Robot_status=data.data
-    
+    flag=who_am_I()
+
 def callback1(data): # formation shape:
 	global shapes
 	shapes = data.data
@@ -160,7 +159,7 @@ def callback6(data): #current position of robot 4
 	shape()
 	final()
 
-def callback7(data): # new position of the leader
+def callback7(data): # new position of the leader after check
 	global R1_gx_cm, R1_gy_cm
 	#rospy.loginfo('robot3 co. = %s', data.data)
 	R1_gx_cm = data.data[0]
@@ -182,6 +181,71 @@ def listener():
     rospy.Subscriber('rob3_CurrentPose', Int32MultiArray, callback5)
     rospy.Subscriber('rob4_CurrentPose', Int32MultiArray, callback6)
     rospy.Subscriber('rob1_final_cm', Int32MultiArray, callback7)
+
+###############################################################################
+#justify_distance function:
+###############################################################################
+def justify_distance(next,base,length):
+    ''' (next) point is used as the follower point,
+        (base) is used as leader point,
+        (length) is used as shape length
+        this function justify the goal position of the robot to the shape length
+        by checking if the desired position above/below shape length
+        then the goal is updated accordingly to a point that
+        meet the shape length requirement.
+    '''
+    #1. initialize justified Point to 0,0:
+    justified_point[0]=0 # x of the point
+    justified_point[1]=0 # y of the point
+    #2. check that next and bas sharing the same x:
+    if next[0]==base[0]:
+        justified_point[0]= base[0]
+        if base[1]<next[1]: #next is above the base
+            justified_point[1]=base[1]+length
+        else: #next is below
+            justified_point[1]=base[1]-length
+    #3. check that next and bas sharing the same y:
+    elif next[1]==base[1]:
+        justified_point[1]= base[1]
+        if base[0]<next[0]: #next is above the base
+            justified_point[0]=base[0]+length
+        else:
+            justified_point[0]=base[0]-length
+    else:
+        print "no justify yet(error)"
+    return justified_point
+
+###############################################################################
+#align function:
+###############################################################################
+def align(follower,follower_num,leader,direction):
+    ''' this function determine the goal position for follower based on alignment direction.
+        The robot align in 90 degree in x or y direction. The
+        function takes direction, follower and leader position anddetermine the next goal point according to direction
+        specified. The resulted goal position is then modified
+        according to shape length by calling a justify_distance
+        function. align_axis global flags are updated after goal
+        position is chosen for both follower and leader
+    '''
+    #align in x or y as demand:
+    if (direction=='x'):
+        #1. align the next_goal x index with leader x index:
+        next_goal[follower_num][0]=leader[0]
+        #2. leave the y index of the next_goal as the follower:
+        next_goal[follower_num][1]=follower[1]
+        #3. set the align axis:
+        align_axis[leader_num][0]=1
+        align_axis[follower_num][0]=1
+    elif (direction=='y'):
+        #1. align the next_goal y index with leader y index:
+        next_goal[follower_num][1]=leader[1]
+        #2. leave the x index of the next_goal as the follower:
+        next_goal[follower_num][0]=follower[0]
+        #3. set the align axis:
+        align_axis[leader_num][1]=1
+        align_axis[follower_num][1]=1
+    #update next_goal of the follower:
+    next_goal[follower_num]=justify_distance(next_goal[follower_num],leader,shape_length)
 
 ###############################################################################
 #shape function:
@@ -252,7 +316,7 @@ def calculations():
     A2 = Ad2*(math.pi/180)
     A3 = Ad3*(math.pi/180)
 
-    #calculate positions of robots 2 and 3 wrt robot 1 position
+    #calculate positions of follower 1 and 2 which is robot 2 and 3:
     x2f = int(round(rob1_goal_x + (Dd*math.cos(A2))))
     x3f = int(round(rob1_goal_x + (Dd*math.cos(A3))))
 
@@ -325,107 +389,62 @@ def calculations():
 #final function:
 ###############################################################################
 def final():
-	#print 'cm' ,R1_gx_cm , R1_gy_cm
-	if (shapes != '' ):
-		global x1 ,y1,rob1_goal_x ,rob1_goal_y
-
-	#if leader has a new position set the position to be added into the calculations as the new position
-		if ((R1_gx_cm > 0) and (R1_gy_cm > 0)):
-
-			x1= R1_gx_cm
-			y1= R1_gy_cm
-			rob1_goal_x = x1
-			rob1_goal_y = y1
-	#call the calculation function
-			calculations()
-			print 'robot2 goal' ,f12_cm
-			print 'robot3 goal' ,f13_cm
-	#publish the final formation positions
-			pub4.publish(f12_CM)
-			pub5.publish(f13_CM)
-		else:
-	#if leader isnt supposed to move set the positions to be added into the calculations as current position of the leader
-			rob1_goal_x = x1
-			rob1_goal_y = y1
-			calculations()
-	else:
-
-		print 'waiting required_shape'
-
-
-#change the positions into pixels and publish it
-
-	rob1_goal_x_px = math.ceil(((rob1_goal_x * 2.43308) /42.9))-1
-	rob1_goal_y_px = math.ceil(((rob1_goal_y * 2.43308) /40.4))-1
-	rob1_goal = numpy.array([rob1_goal_x_px ,rob1_goal_y_px ],Int32MultiArray)
-	R1_goal=Int32MultiArray(data=rob1_goal)
-	#print rob1_goal
-	pub.publish(R1_goal)
-
-###############################################################################
-#justify_distance function:
-###############################################################################
-def justify_distance(next,base,length):
-    ''' (next) point is used as the follower point,
-        (base) is used as leader point,
-        (length) is used as shape length
-        this function justify the goal position of the robot to the shape length
-        by checking if the desired position above/below shape length
-        then the goal is updated accordingly to a point that
-        meet the shape length requirement.
+    ''' this function is run after the whole robots position is subscribed and
+        are ready to use in this code.
+        the main purpose of this function is to check shape is entered and
+        check leader goal is modified or not and calculate the follower1 and 2
+        new goals and publish them.
     '''
-    #1. initialize justified Point to 0,0:
-    justified_point[0]=0 # x of the point
-    justified_point[1]=0 # y of the point
-    #2. check that next and bas sharing the same x:
-    if next[0]==base[0]:
-        justified_point[0]= base[0]
-        if base[1]<next[1]: #next is above the base
-            justified_point[1]=base[1]+length
-        else: #next is below
-            justified_point[1]=base[1]-length
-    #3. check that next and bas sharing the same y:
-    elif next[1]==base[1]:
-        justified_point[1]= base[1]
-        if base[0]<next[0]: #next is above the base
-            justified_point[0]=base[0]+length
+    #print 'cm' ,R1_gx_cm , R1_gy_cm
+    if (shapes != '' ):
+        global x1 ,y1,rob1_goal_x ,rob1_goal_y
+        #if leader has a new position set the position to be added
+        #into the calculations as the new position
+        if ((R1_gx_cm > 0) and (R1_gy_cm > 0)):
+            x1= R1_gx_cm
+            y1= R1_gy_cm
+            rob1_goal_x = x1
+            rob1_goal_y = y1
+            #call the calculation function
+            calculations()
+            print 'robot2 goal' ,f12_cm
+            print 'robot3 goal' ,f13_cm
+            #publish the final formation positions
+            pub4.publish(f12_CM)
+            pub5.publish(f13_CM)
         else:
-            justified_point[0]=base[0]-length
-    else:
-        print "no justify yet(error)"
-    return justified_point
+            #if leader isnt supposed to move set the positions to be added
+            #into the calculations as current position of the leader
+            rob1_goal_x = x1
+            rob1_goal_y = y1
+            calculations()
+            print 'robot2 goal' ,f12_cm
+            print 'robot3 goal' ,f13_cm
+            #publish the final formation positions
+            pub4.publish(f12_CM)
+            pub5.publish(f13_CM)
 
-###############################################################################
-#align function:
-###############################################################################
-def align(follower,follower_num,leader,direction):
-    ''' this function determine the goal position for follower based on alignment direction.
-        The robot align in 90 degree in x or y direction. The
-        function takes direction, follower and leader position anddetermine the next goal point according to direction
-        specified. The resulted goal position is then modified
-        according to shape length by calling a justify_distance
-        function. align_axis global flags are updated after goal
-        position is chosen for both follower and leader
+    else:
+        print 'waiting required_shape'
+
+    #change the positions into pixels and publish it
+    rob1_goal_x_px = math.ceil(((rob1_goal_x * 2.43308) /42.9))-1
+    rob1_goal_y_px = math.ceil(((rob1_goal_y * 2.43308) /40.4))-1
+    rob1_goal = numpy.array([rob1_goal_x_px ,rob1_goal_y_px ],Int32MultiArray)
+    R1_goal=Int32MultiArray(data=rob1_goal)
+    #print rob1_goal
+    pub.publish(R1_goal)
+
+def who_am_I():
+    ''' this function is run ater subscription to all the robot data needed and
+        return 1 for successfully robot identification
     '''
-    #align in x or y as demand:
-    if (direction=='x'):
-        #1. align the next_goal x index with leader x index:
-        next_goal[follower_num][0]=leader[0]
-        #2. leave the y index of the next_goal as the follower:
-        next_goal[follower_num][1]=follower[1]
-        #3. set the align axis:
-        align_axis[leader_num][0]=1
-        align_axis[follower_num][0]=1
-    elif (direction=='y'):
-        #1. align the next_goal y index with leader y index:
-        next_goal[follower_num][1]=leader[1]
-        #2. leave the x index of the next_goal as the follower:
-        next_goal[follower_num][0]=follower[0]
-        #3. set the align axis:
-        align_axis[leader_num][1]=1
-        align_axis[follower_num][1]=1
-    #update next_goal of the follower:
-    next_goal[follower_num]=justify_distance(next_goal[follower_num],leader,shape_length)
+    if Robot_name!='' and Robot_ID !=-1 and Robot_status!='':
+        R=RobotClass(Robot_name,Robot_ID,Robot_status)
+        print "I am robot",R.name, "with ID:",R.ID, "with status:",R.status
+        return 1
+    else:
+        return -1
 
 ###############################################################################
 #Main:
