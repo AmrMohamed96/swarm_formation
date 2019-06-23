@@ -112,6 +112,18 @@ pub7 = rospy.Publisher('m_n_values', Int32MultiArray, queue_size=10)
 ###############################################################################
 #callback functions:
 ###############################################################################
+def callback_name (data):
+    global Robot_name
+    Robot_name=data.data
+
+def callback_ID (data):
+    global Robot_ID
+    Robot_ID=data.data
+
+def callback_satus (data):
+    global Robot_status
+    Robot_status=data.data
+    
 def callback1(data): # formation shape:
 	global shapes
 	shapes = data.data
@@ -159,6 +171,10 @@ def callback7(data): # new position of the leader
 ###############################################################################
 def listener():
     rospy.init_node('Form')
+    rospy.Subscriber('Robot_name',String,callback_name)
+    rospy.Subscriber('Robot_ID',Int32,callback_ID)
+    rospy.Subscriber('Robot_status',String,callback_status)
+
     rospy.Subscriber('Required_Shape', String, callback1)
     rospy.Subscriber('C2C_distance',Int32,callback2)
     rospy.Subscriber('rob1_CurrentPose', Int32MultiArray, callback3)
