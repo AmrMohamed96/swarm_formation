@@ -21,7 +21,7 @@ Ad2 = 0
 Ad3 = 0
 y=0
 #desired distance:
-Dd=0
+Dd=0 #desired distance of the shape
 c2c_distance_px=1 # it is published from the user input and if not it by default =1
 grid_dim=17.5 #cm
 grid_dig_dim=24.75 #cm
@@ -54,6 +54,8 @@ y4=0
 #incrementation values:
 m=0
 n=0
+#who_am_I flag:
+global flag=0
 ###############################################################################
 #RobotClass:
 ###############################################################################
@@ -94,19 +96,35 @@ class RobotClass:
         return self.current_goal[self.ID]
 
 ###############################################################################
+#who_am_I function:
+###############################################################################
+def who_am_I():
+    ''' this function is run ater subscription to all the robot data needed and
+        set flag to 1 for successfully robot identification
+    '''
+    if Robot_name!='' and Robot_ID !=-1 and Robot_status!='':
+        global R
+        R=RobotClass(Robot_name,Robot_ID,Robot_status)
+        pub_align_rob = rospy.Publisher('align_rob'+str(R.ID), Int32MultiArray,queue_size=10)
+        pub_corners_rob =rospy.Publisher('corners_rob'+str(R.ID), Int32MultiArray,queue_size=10)
+        print "I am robot",R.name, "with ID:",R.ID, "with status:",R.status
+        flag=1
+    else:
+        flag=-1
+
+###############################################################################
 #define publishers:
 ###############################################################################
-pub  = rospy.Publisher('robot1_goal_px', Int32MultiArray, queue_size=10)
+pub_rob1_goal_px  = rospy.Publisher('robot1_goal_px', Int32MultiArray, queue_size=10)
 
-pub1 = rospy.Publisher('robot2_goal_px', Int32MultiArray, queue_size=10)
-pub2 = rospy.Publisher('robot3_goal_px', Int32MultiArray, queue_size=10)
-pub3 = rospy.Publisher('robot4_goal_px', Int32MultiArray, queue_size=10)
+pub_rob2_goal_px = rospy.Publisher('robot2_goal_px', Int32MultiArray, queue_size=10)
+pub_rob3_goal_px = rospy.Publisher('robot3_goal_px', Int32MultiArray, queue_size=10)
+pub_rob4_goal_px = rospy.Publisher('robot4_goal_px', Int32MultiArray, queue_size=10)
 
-pub4 = rospy.Publisher('robot2_goal_cm', Int32MultiArray, queue_size=10)
-pub5 = rospy.Publisher('robot3_goal_cm', Int32MultiArray, queue_size=10)
-pub6 = rospy.Publisher('robot4_goal_cm', Int32MultiArray, queue_size=10)
-
-pub7 = rospy.Publisher('m_n_values', Int32MultiArray, queue_size=10)
+pub_rob2_goal_cm = rospy.Publisher('robot2_goal_cm', Int32MultiArray, queue_size=10)
+pub_rob3_goal_cm = rospy.Publisher('robot3_goal_cm', Int32MultiArray, queue_size=10)
+pub_rob4_goal_cm = rospy.Publisher('robot4_goal_cm', Int32MultiArray, queue_size=10)
+pub_m_n_values = rospy.Publisher('m_n_values', Int32MultiArray, queue_size=10)
 ###############################################################################
 #callback functions:
 ###############################################################################
@@ -121,7 +139,7 @@ def callback_ID (data):
 def callback_satus (data):
     global Robot_status
     Robot_status=data.data
-    flag=who_am_I()
+    who_am_I()
 
 def callback1(data): # formation shape:
 	global shapes
@@ -149,6 +167,8 @@ def callback5(data): #current position of robot 3
 	#rospy.loginfo('robot3 co. = %s', data.data)
 	x3 = data.data[0]
 	y3 = data.data[1]
+    shape()
+	final()
 
 def callback6(data): #current position of robot 4
 	global x4, y4
@@ -156,23 +176,55 @@ def callback6(data): #current position of robot 4
 	x4 = data.data[0]
 	y4 = data.data[1]
 
-	shape()
-	final()
-
 def callback7(data): # new position of the leader after check
 	global R1_gx_cm, R1_gy_cm
 	#rospy.loginfo('robot3 co. = %s', data.data)
 	R1_gx_cm = data.data[0]
 	R1_gy_cm = data.data[1]
 
+def callback_align_axis(data):
+    global align_axis
+    align_axis = [data.data.[R.ID-1],data.data[R.ID]]
+
+def callback_shape_corner_robots(data):
+    global shape_corner_robots
+    shape_corner_robots = [data.data.[R.ID-1],data.data[R.ID]]
+
+def callback_x_sides(data):
+    global x_sides
+    x_sides= [data.data[0],data.data[1],data.data[2],data.data[3]]
+
+def callback_y_sides(data):
+    global y_sides
+    y_sides= [data.data[0],data.data[1],data.data[2],data.data[3]]
+
+def callback_current_leader(data):
+    global current_leader
+    current_leader = [data.data[0],data.data[1],data.data[2],data.data[3]]
+
+def callback_shape_sides(data):
+    global shape_sides
+    shape_sides = data.data
+
+def callback_shape_length(data):
+    global shape_length
+    shape_length = data.data
+
 ###############################################################################
 #define subscribers:
 ###############################################################################
 def listener():
-    rospy.init_node('Form')
     rospy.Subscriber('Robot_name',String,callback_name)
     rospy.Subscriber('Robot_ID',Int32,callback_ID)
     rospy.Subscriber('Robot_status',String,callback_status)
+
+    rospy.Subscriber('align_axis',Int32MultiArray,callback_align_axis)
+    rospy.Subscriber('shape_corner_robots',Int32MultiArray,callback_shape_corner_robots)
+    rospy.Subscriber('x_sides',Int32MultiArray,callback_x_sides)
+    rospy.Subscriber('y_sides',Int32MultiArray,callback_y_sides)
+    rospy.Subscriber('current_leader',Int32MultiArray,callback_current_leader)
+    rospy.Subscriber('shape_sides',Int32,callback_shape_sides)
+    rospy.Subscriber('shape_length',Int32,callback_shape_length)
 
     rospy.Subscriber('Required_Shape', String, callback1)
     rospy.Subscriber('C2C_distance',Int32,callback2)
@@ -259,42 +311,42 @@ def shape():
     if shapes == "line" :
         Ad2=0
         Ad3=180
-        Ad4=0
+        #Ad4=0
         Dd =swarm_robots_num*c2c_distance_px*grid_dim
         m=3
         n=0
     elif shapes == "column" :
         Ad2=90
         Ad3=270
-        Ad4=90
+        #Ad4=90
         Dd =swarm_robots_num*c2c_distance_px*grid_dim
         m=0
         n=3
     elif shapes == "diagonal" :
         Ad2=45
         Ad3=-135
-        Ad4=45
+        #Ad4=45
         Dd =swarm_robots_num*c2c_distance_px*grid_dig_dim
         m=3
         n=0
     elif shapes == "triangle":
         Ad2=-45
         Ad3=-135
-        Ad4=270
+        #Ad4=270
         Dd =swarm_robots_num*c2c_distance_px*grid_dig_dim
         m=2
         n=0
     elif shapes == "L-shape":
         Ad2=0
         Ad3=90
-        Ad4=90
+        #Ad4=90
         Dd =swarm_robots_num*c2c_distance_px*grid_dim
         m=2
         n=2
     elif shapes == "square":
         Ad2=0
         Ad3=90
-        Ad4=45
+        #Ad4=45
         Dd =swarm_robots_num*c2c_distance_px*grid_dim
         m=2
         n=2
@@ -304,13 +356,15 @@ def shape():
     #publish the incrementation values of leader
     m_n_values = numpy.array([ m ,n],Int32MultiArray)
     m_n_values_=Int32MultiArray(data=m_n_values)
-    pub7.publish(m_n_values_)
+    pub_m_n_values.publish(m_n_values_)
 
 ###############################################################################
 #calculation function:
 ###############################################################################
 def calculations():
-
+    ''' This function is to calculate the the follower1 and follower2 goal
+        position based on leader position and the shape given
+    '''
     global A2, A3 ,f13_CM ,f12_CM ,f13_cm ,f12_cm ,f12_px ,f13_px
     #change the angels into radians
     A2 = Ad2*(math.pi/180)
@@ -371,19 +425,20 @@ def calculations():
             f13_px = numpy.array([ x2f_px , y2f_px , a1 ],Int32MultiArray)
             f12_px = numpy.array([ x3f_px , y3f_px , a1 ],Int32MultiArray)
 
-    #publish the formation positions
-
+    #publish the formation positions:
     f13_=Int32MultiArray(data=f13_px)
     f12_=Int32MultiArray(data=f12_px)
-
+    print 'robot2 grid goal' ,f12_px
+    print 'robot3 grid goal' ,f13_px
+    pub_rob2_goal_px.publish(f12_)
+    pub_rob3_goal_px.publish(f13_)
 
     f13_CM=Int32MultiArray(data=f13_cm)
     f12_CM=Int32MultiArray(data=f12_cm)
-
-    #		print 'robot2 grid goal' ,f12_px
-    #		print 'robot3 grid goal' ,f13_px
-    pub1.publish(f12_)
-    pub2.publish(f13_)
+    print 'robot2 goal' ,f12_cm
+    print 'robot3 goal' ,f13_cm
+    pub_rob2_goal_cm.publish(f12_CM)
+    pub_rob3_goal_cm.publish(f13_CM)
 
 ###############################################################################
 #final function:
@@ -396,34 +451,43 @@ def final():
         new goals and publish them.
     '''
     #print 'cm' ,R1_gx_cm , R1_gy_cm
-    if (shapes != '' ):
-        global x1 ,y1,rob1_goal_x ,rob1_goal_y
-        #if leader has a new position set the position to be added
-        #into the calculations as the new position
-        if ((R1_gx_cm > 0) and (R1_gy_cm > 0)):
-            x1= R1_gx_cm
-            y1= R1_gy_cm
-            rob1_goal_x = x1
-            rob1_goal_y = y1
-            #call the calculation function
-            calculations()
-            print 'robot2 goal' ,f12_cm
-            print 'robot3 goal' ,f13_cm
-            #publish the final formation positions
-            pub4.publish(f12_CM)
-            pub5.publish(f13_CM)
-        else:
-            #if leader isnt supposed to move set the positions to be added
-            #into the calculations as current position of the leader
-            rob1_goal_x = x1
-            rob1_goal_y = y1
-            calculations()
-            print 'robot2 goal' ,f12_cm
-            print 'robot3 goal' ,f13_cm
-            #publish the final formation positions
-            pub4.publish(f12_CM)
-            pub5.publish(f13_CM)
+    if ((shapes != '') and (flag =1)):
+        if (R.status=='leader'):
+            global x1 ,y1,rob1_goal_x ,rob1_goal_y
+            #if leader has a new position set the position to be added
+            #into the calculations as the new position
+            if ((R1_gx_cm > 0) and (R1_gy_cm > 0)):
+                x1= R1_gx_cm
+                y1= R1_gy_cm
+                rob1_goal_x = x1
+                rob1_goal_y = y1
+                calculations()
+                move(R.ID,rob1_goal_x,rob1_goal_y)
+            else:
+                #if leader is not supposed to move set the positions to be added
+                #into the calculations as current position of the leader
+                rob1_goal_x = x1
+                rob1_goal_y = y1
+                calculations()
+        elif (R.status =='follower1'):
+            global x2 ,y2,rob2_goal_x_px ,rob2_goal_y_px
+            move(R.ID,[rob2_goal_x_px,rob2_goal_y_px])
+        elif (R.status =='follower2'):
+            global x3 ,y3,rob3_goal_x_px ,rob3_goal_y_px
+            move(R.ID,[rob3_goal_x_px,rob3_goal_y_px])
 
+        else:#tare2t el sabken le el robot el rab3 :D
+            rob4_goal_x_cm = R1_gx_cm+ c2c_distance_px*grid_dim
+            rob4_goal_y_cm = R1_gy_cm+ c2c_distance_px*grid_dim
+            rob4_goal_x_px = math.ceil(((rob4_goal_x_cm * 2.43308) /42.9))-1
+            rob4_goal_y_px = math.ceil(((rob4_goal_y_cm* 2.43308) /40.4))-1
+
+            rob4_goal_cm = numpy.array([rob4_goal_x_cm ,rob4_goal_y_cm],Int32MultiArray)
+            R4_goal_cm=Int32MultiArray(data=rob4_goal_cm)
+            pub_rob4_goal_cm.publish(R4_goal_cm)
+            rob4_goal_px = numpy.array([rob4_goal_x_px ,rob4_goal_y_px ],Int32MultiArray)
+            R4_goal_px=Int32MultiArray(data=rob4_goal_px)
+            pub_rob4_goal_px.publish(R4_goal_px)
     else:
         print 'waiting required_shape'
 
@@ -433,23 +497,21 @@ def final():
     rob1_goal = numpy.array([rob1_goal_x_px ,rob1_goal_y_px ],Int32MultiArray)
     R1_goal=Int32MultiArray(data=rob1_goal)
     #print rob1_goal
-    pub.publish(R1_goal)
+    pub_rob1_goal_px.publish(R1_goal)
 
-def who_am_I():
-    ''' this function is run ater subscription to all the robot data needed and
-        return 1 for successfully robot identification
-    '''
-    if Robot_name!='' and Robot_ID !=-1 and Robot_status!='':
-        R=RobotClass(Robot_name,Robot_ID,Robot_status)
-        print "I am robot",R.name, "with ID:",R.ID, "with status:",R.status
-        return 1
-    else:
-        return -1
+
+###############################################################################
+#move function:
+###############################################################################
+def move(id,goal):
+    ''' this function takes the goal points and robot id to use them calling
+        path planning and go to goal '''
 
 ###############################################################################
 #Main:
 ###############################################################################
 if __name__== '__main__':
+    rospy.init_node('Form')
 	while not rospy.is_shutdown():
 		listener()
 	#	rate.sleep()
