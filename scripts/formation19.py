@@ -3,7 +3,7 @@
 import argparse
 import sys
 import rospy
-from std_msgs.msg import Int32MultiArray Int32 String Float32
+from std_msgs.msg import Int32MultiArray Int32 String Float32 Byte
 from rospy_tutorials.msg import Floats
 import numpy
 import math
@@ -66,7 +66,7 @@ class RobotClass:
     current_goal= [[0,0],[0,0],[0,0],[0,0]]
     next_goal= [[0,0],[0,0],[0,0],[0,0]]
     def __init__(self,ID,status):
-        self.ID = ID
+        self.ID = rospy.rosparam('~robot_id', 1)
         self.status=status
     def set_ID(self, ID):
         self.ID = ID
@@ -450,6 +450,10 @@ def calculations():
 ###############################################################################
 #final function:
 ###############################################################################
+def leader_flag_callback(data):
+    global leader_goal_flag
+    leader_goal_flag = data.data
+
 def final():
     ''' this function is run after the whole robots position is subscribed and
         are ready to use in this code.
@@ -461,6 +465,10 @@ def final():
     if ((shapes != '') and (flag =1)):
         if (R.status=='leader'):
             global x1 ,y1,rob1_goal_x ,rob1_goal_y,rob1_goal_x_px ,rob1_goal_y_px
+            leaderGoalFlag = rospy.Publisher('leader_reached_flag', Byte, queue_size=10)
+            connections = leaderGoalFlag.get_num_connection()
+            if connections > 0:
+                leaderGoalFlag.publish(-1)
             #if leader has a new position set the position to be added
             #into the calculations as the new position
             if ((R1_gx_cm > 0) and (R1_gy_cm > 0)):
@@ -488,20 +496,28 @@ def final():
                 #calculations()
                 move(R.ID,next_goal[R.ID])
         elif (R.status =='follower1'):
-            global x2 ,y2,rob2_goal_x ,rob2_goal_y,rob2_goal_x_px ,rob2_goal_y_px
-            shape_corner_robots[1]=[rob2_goal_x_px,rob2_goal_y_px]
-            nearest_two_neighbors=find_nearest_two_neighbors()
-            followers_routine_step2()
-            #calculations()
-            move(R.ID,next_goal[R.ID])
+            rospy.Subscriber('leader_reached_flag', Byte, follower1_flag_callback)
+            follower1GoalFlag = rospy.Publisher('follower1_reached_flag', Byte, queue_size=10)
+            connections = follower1GoalFlag.get_num_connection()
+            if connections > 0:
+                follower1GoalFlag.publish(-1)
+            if ( leader_goal_flag == 1 ):
+                global x2 ,y2,rob2_goal_x ,rob2_goal_y,rob2_goal_x_px ,rob2_goal_y_px
+                shape_corner_robots[1]=[rob2_goal_x_px,rob2_goal_y_px]
+                nearest_two_neighbors=find_nearest_two_neighbors()
+                followers_routine_step2()
+                #calculations()
+                move(R.ID,next_goal[R.ID])
 
         elif (R.status =='follower2'):
-            global x3 ,y3,rob3_goal_x_px ,rob3_goal_y_px
-            shape_corner_robots[2]=[rob3_goal_x,rob3_goal_y]
-            nearest_two_neighbors=find_nearest_two_neighbors()
-            follower_routine()
-            #calculations()
-            move(R.ID,next_goal[R.ID])
+            rospy.Subscriber('follower1_reached_flag', Byte, follower2_flag_callback)
+            if ( follower1_goal_flag == 1 ):
+                global x3 ,y3,rob3_goal_x_px ,rob3_goal_y_px
+                shape_corner_robots[2]=[rob3_goal_x,rob3_goal_y]
+                nearest_two_neighbors=find_nearest_two_neighbors()
+                follower_routine()
+                #calculations()
+                move(R.ID,next_goal[R.ID])
 
         else:#tare2t el sabken le el robot el rab3 :D
             rob4_goal_x_cm = R1_gx_cm+ c2c_distance_px*grid_dim
