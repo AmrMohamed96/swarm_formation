@@ -1,43 +1,47 @@
 #!/usr/bin/env python
 from __future__ import division
 import rospy
-import math
-import time
+from std_msgs.msg import Int32MultiArray, Int32, Byte
 import numpy as np
-from std_msgs.msg import Float32, Int32MultiArray, Float32MultiArray, Int32
 
 """
-  ** GLOBAL KNOWLEDGE NODE FOR FORMATION **
-  The node acts as a centralized host for variables
-  that must be shared across all robots in the system.
+    GLOBAL KNOWLEDGE NODE FOR FORMATION ALGORITHM
+    DATA:
+    - the node contains data that need to be shared accross all
+    robots inside the system
 
-  The node is currently optimized for 4 Robots in a system
+    FUNCTIONS:
+    - update robot status to leader
+    - update robot status to follower1, follower2
+    - update next goals for each robot
 """
-
-# Global Knowledge Variables
-# FIRST: Parameters that will be later modified by robots
+###############################################################################
+# Global variables that will continously be published
+###############################################################################
+# a list of list to show status of alignment of each robot
 align_axis = [ [0,0],[0,0],[0,0],[0,0] ]
-                                            # A list of lists. Each sublist for index i indicates which
-                                            # axis in the i th robot is already aligned
-                                            # This list is flattened and to be reshaped when recieved.
 
+# a list of lists that shows the coordinates of robots forming corners
 shape_corner_robots = [ [0,0],[0,0],[0,0],[0,0] ]
-                                            # A list of lists. Each sublist with index i indicates
-                                            # the coordinates of the robot that make the shape corners
-                                            # This list is flattened and to be reshaped when recieved.
 
-# SECOND: Parameters that are modified from the Pattern Estimation Layer
-shape_length = 0                            # Integer for the required shape side length
-shape_sides = 0                             # Integer value that indicates no. of shape sides
-x_sides = [0,0,0,0]                         # List of integers that indicates saturation Value for X Sides
-y_sides = [0,0,0,0]                         # List of integers that indicates saturation value for Y Sides
+# pattern estimation parameters
+shape_length = 0
+shape_sides = 0
+x_sides = [0,0,0,0]
+y_sides = [0,0,0,0]
 
-# THIRD: Formation related variables (Ones that we added to the global node)
-current_leader = [0,0,0,0]                  # A list of robot's states, when one is raised as 1, it is the current leader
-leader_set_flag = 0                         # Flag raised when one robot is set as leader, to prevent multiple edits
-leader_set_counter = 0                      # Counter to count how many time a leader has been set
+# logging parameters that we introduced to the global node
+# 1: Leader, 2: Follower1, 3: Follower2
+robot_status = [0,0,0,0]
+prev_robot_status = [0,0,0,0]
+# Rob Num: Leader Count
+leader_history = [0,0,0,0]
+# next goals for all robots, index indicates robot number
+next_goals = [ [0,0], [0,0], [0,0], [0,0] ]
 
-#Editing Align Axis Callback Functions (1 for each robot)
+###############################################################################
+# Callbacks that take align axis from each robot and update the global align axis
+###############################################################################
 def edit_align_rob1_callback(data):
     global align_axis
     align_axis[0][0] = data.data[0]
@@ -58,7 +62,9 @@ def edit_align_rob4_callback(data):
     align_axis[3][0] = data.data[0]
     align_axis[3][1] = data.data[1]
 
-#Editing Shape Corners Array Callback Functions (1 for each robot)
+###############################################################################
+# Callbacks that take coordinates of corner robots and update the global list
+###############################################################################
 def edit_corners_rob1_callback(data):
     global shape_corner_robots
     shape_corner_robots[0][0] = data.data[0]
@@ -79,89 +85,129 @@ def edit_corners_rob4_callback(data):
     shape_corner_robots[3][0] = data.data[0]
     shape_corner_robots[3][1] = data.data[1]
 
-def edit_leader_callback(data):
-    global current_leader, leader_set_flag
-    if leader_set_flag == 0:
-        current_leader = data.data
-        leader_set_flag = 1
+###############################################################################
+# Function to set the leader status
+###############################################################################
+def set_new_leader_callback(data):
+    global robot_status, prev_robot_status, leader_history
+    robot_status = [0,0,0,0]
+    robot_status[data.data - 1] = 1
+    if prev_robot_status != robot_status:
+        leader_history[data.data -1] += 1
+    prev_robot_status = robot_status
 
-def reset_leader_callback():
-    global current_leader, leader_set_flag, leader_set_counter
-    leader_set_flag = 0                 # Clears the flag to allow another leader to be set
-    current_leader = [0,0,0,0]          # Resets the current leader global list
-    leader_set_counter += 1             # Increment to indicate this is another rotation of leader setting
+###############################################################################
+# Function to reset the leader of the system
+###############################################################################
+def reset_leader_stats_callback(data):
+    global robot_status
+    if (data.data == 1):
+        robot_status = [9,9,9,9]
 
+###############################################################################
+# Function to update followers status
+###############################################################################
+def assign_followers_callback(data):
+    global robot_status
+    robot_status = data.data
 
-def shape_setter():
+###############################################################################
+# Function to update next goal of robot i
+###############################################################################
+def update_next_goals_callback(data):
+    global next_goals
+    next_goals = list()
+    next_goals = next_goals.append( [data.data[0], data.data[1]] )
+    next_goals = next_goals.append( [data.data[2], data.data[3]] )
+    next_goals = next_goals.append( [data.data[4], data.data[5]] )
+    next_goals = next_goals.append( [data.data[6], data.data[7]] )
+
+###############################################################################
+# Set Pattern Parameters Callback
+###############################################################################
+def set_pattern_param_callback(data):
     global shape_length, shape_sides, x_sides, y_sides
-    # Predefining some shape parameters as if
-    # pattern estimation layer is inputting them
-    shape_length = 70       # Side length in cm
-    shape_sides = 4         # 4 sides for square formation
-    x_sides=[0,0,0,0]     # Zero x saturation values (for only 4 robots)
-    y_sides=[0,0,0,0]     # Zero y saturation values (for only 4 robots)
+    shape_length = data.data[0]
+    shape_sides = data.data[1]
 
+    x_sides = list()
+    x_sides = x_sides.append( [ data.data[2], data.data[3] ])
+    x_sides = x_sides.append( [ data.data[4], data.data[5] ])
+
+    y_sides = list()
+    y_sides = y_sides.append( [ data.data[6], data.data[7] ])
+    y_sides = y_sides.append( [ data.data[8], data.data[9] ])
+
+###############################################################################
+# Subscribers of the global node
+###############################################################################
 def global_node_listener():
-    #Align Axis Edit Requests
-    rospy.Subscriber('align_rob1', Int32MultiArray, edit_align_rob1_callback)
-    rospy.Subscriber('align_rob2', Int32MultiArray, edit_align_rob2_callback)
-    rospy.Subscriber('align_rob3', Int32MultiArray, edit_align_rob3_callback)
-    rospy.Subscriber('align_rob4', Int32MultiArray, edit_align_rob4_callback)
+    # subscribers that update align axis list of each robot independently
+    rospy.Subscriber('align_axis_rob1', Int32MultiArray, edit_align_rob1_callback)
+    rospy.Subscriber('align_axis_rob2', Int32MultiArray, edit_align_rob2_callback)
+    rospy.Subscriber('align_axis_rob3', Int32MultiArray, edit_align_rob3_callback)
+    rospy.Subscriber('align_axis_rob4', Int32MultiArray, edit_align_rob4_callback)
 
-    #Shape Corners Callbacks
-    rospy.Subscriber('corners_rob1', Int32MultiArray, edit_corners_rob1_callback)
-    rospy.Subscriber('corners_rob2', Int32MultiArray, edit_corners_rob2_callback)
-    rospy.Subscriber('corners_rob3', Int32MultiArray, edit_corners_rob3_callback)
-    rospy.Subscriber('corners_rob4', Int32MultiArray, edit_corners_rob4_callback)
+    # subscribers that update shape corner robots
+    rospy.Subscriber('shape_corner_rob1', Int32MultiArray, edit_corners_rob1_callback)
+    rospy.Subscriber('shape_corner_rob2', Int32MultiArray, edit_corners_rob2_callback)
+    rospy.Subscriber('shape_corner_rob3', Int32MultiArray, edit_corners_rob3_callback)
+    rospy.Subscriber('shape_corner_rob4', Int32MultiArray, edit_corners_rob4_callback)
 
-    #Editing Leader Callback
-    rospy.Subscriber('edit_current_leader', Int32MultiArray, edit_leader_callback)
-    rospy.Subscriber('reset_leader_flag', Int32, reset_leader_callback)
+    # subscriber that takes the pattern parameters (Shape_Length, Shape_Sides, X_Sides, Y_Sides)
+    rospy.Subscriber('pattern_parameters', Int32MultiArray, set_pattern_param_callback)
 
+    # subscriber that updates followers
+    rospy.Subscriber('assign_follower_robots',Int32MultiArray, assign_followers_callback)
+
+    # subscriber that updates next goals
+    rospy.Subscriber('update_next_goals', Int32MultiArray, update_next_goals_callback)
+
+    # subscriber to set a leader
+    rospy.Subscriber('set_new_leader', Byte, set_new_leader_callback)
+
+    # subscriber to reset the leader
+    rospy.Subscriber('reset_leader_stats', Byte, reset_leader_stats_callback)
+
+###############################################################################
+# Main code of the global node
+###############################################################################
 def global_talker():
-    # Initialize the node
-    rospy.init_node('formation_global_knowledge')
-    rospy.loginfo("%s started" % rospy.get_name())
-
+    global leader_history
     # Defining Publishers
     alignPub = rospy.Publisher('align_axis', Int32MultiArray, queue_size=10)
     shapeCorners = rospy.Publisher('shape_corner_robots', Int32MultiArray, queue_size=10)
 
     shapeLength = rospy.Publisher('shape_length', Int32, queue_size=10)
     shapeSides = rospy.Publisher('shape_sides', Int32, queue_size=10)
-
     xSides = rospy.Publisher('x_sides', Int32MultiArray, queue_size=10)
     ySides = rospy.Publisher('y_sides', Int32MultiArray, queue_size=10)
 
-    currentLeader = rospy.Publisher('current_leader', Int32MultiArray, queue_size=10)
+    robotStats = rospy.Publisher('robot_status', Int32MultiArray, queue_size=10)
+    leaderHistory = rospy.Publisher('leader_history', Int32MultiArray, queue_size=10)
+    nextGoals = rospy.Publisher('next_goals', Int32MultiArray, queue_size=10)
+
+    # Starting the subscribers
+    global_node_listener()
 
     while not rospy.is_shutdown():
-        # Creating Mirrors of current variables to be able to publish them
-        align_axis_mirror = Int32MultiArray()
-        shape_corner_mirror = Int32MultiArray()
-        x_sides_mirror = Int32MultiArray()
-        y_sides_mirror = Int32MultiArray()
-
-        align_axis_mirror.data = np.reshape(align_axis, (8))
-        shape_corner_mirror.data = np.reshape(shape_corner_robots, (8))
-        x_sides_mirror.data = x_sides
-        y_sides_mirror.data = y_sides
-
-        # Publishing all data
-        alignPub.publish(align_axis_mirror)
-        shapeCorners.publish(shape_corner_mirror)
+        # broadcasting all nodes data
+        alignPub.publish( Int32MultiArray(data = np.reshape(align_axis, (8)) ))
+        shapeCorners.publish( Int32MultiArray(data = np.reshape(shape_corner_robots, (8))) )
         shapeLength.publish(shape_length)
         shapeSides.publish(shape_sides)
-        xSides.publish(x_sides_mirror)
-        ySides.publish(y_sides_mirror)
-        currentLeader.publish(current_leader)
+        xSides.publish( Int32MultiArray(data=x_sides) )
+        ySides.publish( Int32MultiArray(data=y_sides) )
 
-        # Ensuring that the node subscribes to new data
-        global_node_listener()
+        robotStats.publish( Int32MultiArray(data=robot_status) )
+        leaderHistory.publish( Int32MultiArray(data=leader_history) )
+        nextGoals.publish( Int32MultiArray( data= np.reshape(next_goals, (8)) ) )
 
 if __name__ == '__main__':
     try:
-        shape_setter()
+        # initializing the global node
+        rospy.init_node('formation_global_knowledge')
+        rospy.loginfo("%s started" % rospy.get_name())
         global_node_listener()
         global_talker()
     except rospy.ROSInterruptException:
