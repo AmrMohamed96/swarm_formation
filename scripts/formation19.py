@@ -580,7 +580,7 @@ def move(id):
     pub_robot_id.publish(id)
     while g2g_flag !=1:
         print "do nothing and wait"
-        rospy.sleep(200)
+        rospy.sleep(150)
 
 ###############################################################################
 #Main:
