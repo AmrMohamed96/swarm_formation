@@ -94,6 +94,7 @@ def set_new_leader_callback(data):
     robot_status[data.data - 1] = 1
     if prev_robot_status != robot_status:
         leader_history[data.data -1] += 1
+        rospy.loginfo("New Leader: Robot " + str(data.data) + " is now leader")
     prev_robot_status = robot_status
 
 ###############################################################################
@@ -103,6 +104,7 @@ def reset_leader_stats_callback(data):
     global robot_status
     if (data.data == 1):
         robot_status = [9,9,9,9]
+        rospy.loginfo("Leaders has been reset. Execution of follower 4 routine ready")
 
 ###############################################################################
 # Function to update followers status
@@ -190,25 +192,28 @@ def global_talker():
     # Starting the subscribers
     global_node_listener()
 
-    while not rospy.is_shutdown():
-        # broadcasting all nodes data
-        alignPub.publish( Int32MultiArray(data = np.reshape(align_axis, (8)) ))
-        shapeCorners.publish( Int32MultiArray(data = np.reshape(shape_corner_robots, (8))) )
-        shapeLength.publish(shape_length)
-        shapeSides.publish(shape_sides)
-        xSides.publish( Int32MultiArray(data=x_sides) )
-        ySides.publish( Int32MultiArray(data=y_sides) )
+    try:
+        while not rospy.is_shutdown():
+            # broadcasting all nodes data
+            alignPub.publish( Int32MultiArray(data = np.reshape(align_axis, (8)) ))
+            shapeCorners.publish( Int32MultiArray(data = np.reshape(shape_corner_robots, (8))) )
+            shapeLength.publish(shape_length)
+            shapeSides.publish(shape_sides)
+            xSides.publish( Int32MultiArray(data=x_sides) )
+            ySides.publish( Int32MultiArray(data=y_sides) )
 
-        robotStats.publish( Int32MultiArray(data=robot_status) )
-        leaderHistory.publish( Int32MultiArray(data=leader_history) )
-        nextGoals.publish( Int32MultiArray( data= np.reshape(next_goals, (8)) ) )
+            robotStats.publish( Int32MultiArray(data=robot_status) )
+            leaderHistory.publish( Int32MultiArray(data=leader_history) )
+            nextGoals.publish( Int32MultiArray( data= np.reshape(next_goals, (8)) ) )
+
+    except KeyboardInterrupt:
+        rospy.loginfo("Node was forced to close")
 
 if __name__ == '__main__':
     try:
         # initializing the global node
         rospy.init_node('formation_global_knowledge')
         rospy.loginfo("%s started" % rospy.get_name())
-        global_node_listener()
         global_talker()
     except rospy.ROSInterruptException:
         pass
