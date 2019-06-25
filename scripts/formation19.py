@@ -39,18 +39,13 @@ R1_gy_cm =0
 rob1_goal_x =0
 rob1_goal_y =0
 #leader current position:
-x1=0
-y1=0
-a1=0
+x1=y1=a1=0
 #robot 2 current position:
-x2=0
-y2=0
+x2=y2=a2=0
 #robot 3 current position:
-x3=0
-y3=0
+x3=y3=a3=0
 #robot 4 current position:
-x4=0
-y4=0
+x4=y4=a4=0
 #incrementation values:
 m=0
 n=0
@@ -147,42 +142,55 @@ def callback_g2g_flag_rob (data):
     global g2g_flag
     g2g_flag=data.data
 
-def callback1(data): # formation shape:
+def callback_formation_shape(data): # formation shape:
     global shapes
     shapes = data.data
 
-def callback2(data): #center to center distance in pixels
+def callback_c2c_distance_px(data): #center to center distance in pixels
     global c2c_distance_px
     c2c_distance_px = data.data
 
-def callback3(data): #current position of robot1 (leader)
+def callback_rob1_current_pos(data): #current position of robot1 (leader)
     global x1, y1, a1
     #rospy.loginfo('robot1 co. = %s', data.data)
     x1 = data.data[0]
     y1 = data.data[1]
     a1 = data.data[2]
 
-def callback4(data): #current position of robot 2
-    global x2, y2
+def callback_rob2_current_pos(data): #current position of robot 2
+    global x2, y2, a2
     #rospy.loginfo('robot2 co. = %s', data.data)
     x2 = data.data[0]
     y2 = data.data[1]
+    a2 = data.data[2]
 
-def callback5(data): #current position of robot 3
-    global x3, y3
+def callback_rob3_current_pos(data): #current position of robot 3
+    global x3, y3, a3
     #rospy.loginfo('robot3 co. = %s', data.data)
     x3 = data.data[0]
     y3 = data.data[1]
+    a3 = data.data[2]
     shape()
     final()
 
-def callback6(data): #current position of robot 4
-    global x4, y4
+def callback_rob4_current_pos(data): #current position of robot 4
+    global x4, y4, a3
     #rospy.loginfo('robot4 co. = %s', data.data)
     x4 = data.data[0]
     y4 = data.data[1]
+    a4 = data.data[2]
 
-def callback7(data): # new position of the leader after check
+def callback_robots_current_poses(data):
+    ''' this call back fn takes all current poses from camera direct in one array
+    '''
+    global poses
+    poses =list()
+    poses.append([data.data[0],data.data[1]])
+    poses.append([data.data[2],data.data[3]])
+    poses.append([data.data[4],data.data[7]])
+    poses.append([data.data[6],data.data[8]])
+
+def callback_leader_final_goal(data): # new position of the leader after check
     global R1_gx_cm, R1_gy_cm
     #rospy.loginfo('robot3 co. = %s', data.data)
     R1_gx_cm = data.data[0]
@@ -206,13 +214,16 @@ def who_am_I():
 #define subscribers:
 ###############################################################################
 def listener():
-    rospy.Subscriber('Required_Shape', String, callback1)
-    rospy.Subscriber('C2C_distance',Int32,callback2)
-    rospy.Subscriber('rob1_CurrentPose', Int32MultiArray, callback3)
-    rospy.Subscriber('rob2_CurrentPose', Int32MultiArray, callback4)
-    rospy.Subscriber('rob3_CurrentPose', Int32MultiArray, callback5)
-    rospy.Subscriber('rob4_CurrentPose', Int32MultiArray, callback6)
-    rospy.Subscriber('rob1_final_cm', Int32MultiArray, callback7)
+    rospy.Subscriber('Required_Shape', String, callback_formation_shape)
+    rospy.Subscriber('C2C_distance',Int32, callback_c2c_distance_px)
+
+    rospy.Subscriber('rob1_CurrentPose', Int32MultiArray, callback_rob1_current_pos)
+    rospy.Subscriber('rob2_CurrentPose', Int32MultiArray, callback_rob2_current_pos)
+    rospy.Subscriber('rob3_CurrentPose', Int32MultiArray, callback_rob3_current_pos)
+    rospy.Subscriber('rob4_CurrentPose', Int32MultiArray, callback_rob4_current_pos)
+    rospy.Subscriber('robots_current_poses', Int32MultiArray, callback_robots_current_poses)
+
+    rospy.Subscriber('rob1_final_cm', Int32MultiArray, callback_leader_final_goal)
     rospy.Subscriber('g2g_flag_rob'+str(R.ID), Int32, callback_g2g_flag_rob)
 
 def listener_from_global():
@@ -540,20 +551,38 @@ def final():
 ###############################################################################
 #followers_routine_step1 function:
 ###############################################################################
+# def callback_leader_follower_distances(data):
+#     global leader_follower1_x, leader_follower1_y, leader_follower2_x, leader_follower2_y
+#     leader_follower1_x = data.data[0]
+#     leader_follower1_y = data.data[1]
+#     leader_follower2_x = data.data[2]
+#     leader_follower2_y = data.data[3]
+
 def followers_routine_step1(leader_id,f1_id,f2_id):
     ''' this function do the routine for each follower from leader prespective
+    '''
+    # pub_ids = rospy.Publisher('leader_followers_ids',Int32MultiArray,queue_size=10)
+    # pub_ids.publish(Int32MultiArray(data=numpy.array([leader_id , f1_id , f2_id],Int32MultiArray))
+    # rospy.Subscriber('leader_followers_distances',Int32MultiArray, callback_leader_follower_distances )
+    leader_follower1_x = poses[leader_id][0]-poses[f1_id][0]
+    leader_follower1_y = poses[leader_id][1]-poses[f1_id][1]
+    leader_follower2_x = poses[leader_id][0]-poses[f2_id][0]
+    leader_follower2_y = poses[leader_id][1]-poses[f2_id][1]
 
-    leader_follower1_x=
-    leader_follower1_y=
-    leader_follower2_x=
-    leader_follower2_y=
     if (leader_follower1_x < leader_follower1_y and align_axis[leader_id][0]=0):
-        align(,f1_id,,'x' )
+        align(poses[leader_id], f1_id ,poses[f1_id] ,'x' )
     else:
-        align(,f2_id,,'y')
+        align(poses[leader_id], f1_id ,poses[f1_id] ,'y' )
     shape_sides -=1
     shape_corner_robots[f1_id]=next_goal[f1_id]
-'''
+
+    if (leader_follower2_x < leader_follower2_y and align_axis[leader_id][0]=0):
+        align(poses[leader_id], f2_id ,poses[f2_id] ,'x' )
+    else:
+        align(poses[leader_id], f2_id ,poses[f2_id] ,'y' )
+    shape_sides -=1
+    shape_corner_robots[f2_id]=next_goal[f2_id]
+
 ###############################################################################
 #followers_routine_step2 function:
 ###############################################################################
