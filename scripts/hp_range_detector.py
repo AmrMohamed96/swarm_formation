@@ -5,14 +5,15 @@ from math import sin, cos, pi
 from std_msgs.msg import Int32, Int32MultiArray, Byte
 import numpy as np
 import transformations
+import time
 
 # range sensor maximum distance in cm
 m = 35
 
 # robot position variables
-rob1_position = [0,0,0]
-rob2_position = [0,0,0]
-rob3_position = [0,0,0]
+rob1_position = [34,0,0]
+rob2_position = [35,0,0]
+rob3_position = [33,0,0]
 rob4_position = [0,0,0]
 
 # list showing how many robots are in range for robot i
@@ -48,6 +49,37 @@ def rerun_range_sensors_callback(data):
         check_in_range_rob4()
     else:
         return
+
+###############################################################################
+# Setting a leader based on data, and checking if it needs motion
+###############################################################################
+def set_and_check_leader():
+    """
+    Function loops over the inrange_count list, checks how sees the most
+    robots in the system and assigns them as a leader
+
+    If 2 robots have the same number, the first one in the list will be assigned
+    as a leader
+
+    EDITING REQUIRED ***********************************************************
+    """
+    # check which robot is the leader
+    desired_leader = 0
+    max = 0
+    for i in range( len(inrange_count) ):
+        if ( inrange_count[i] >= max ):
+            max = inrange_count[i]
+            desired_leader = i
+
+    # check if a formation is possible given the current situation
+
+    # assign a next goal for leader if needed
+
+    # set the leader
+    setLead = rospy.Publisher('set_new_leader', Byte, queue_size=1)
+    time.sleep(5)
+    setLead.publish(desired_leader+1)
+    rospy.loginfo('Leader will be Robot {} as it sees {} robots'.format(desired_leader + 1, inrange_count[desired_leader]))
 
 ###############################################################################
 # Range Detector Simulator Functions
@@ -137,6 +169,7 @@ if __name__ == '__main__':
         check_in_range_rob2()
         check_in_range_rob3()
         check_in_range_rob4()
+        set_and_check_leader()
 
         # stay in a loop publishing until another run is issues via the subscriber
         try:
