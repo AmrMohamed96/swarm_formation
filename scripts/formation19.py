@@ -605,9 +605,12 @@ def find_nearest_two_neighbors(id):
     dist1 = calculate_distance(poses[id],poses[(id+1)%4])
     dist2 = calculate_distance(poses[id],poses[(id+2)%4])
     dist3 = calculate_distance(poses[id],poses[(id+3)%4])
-    distances_list= [dist1,dist2,dist3]
-    list.sort(distances)
-    return [distances[0],distances[1]]
+    distances ={str((id+1)%4):dist1,  str((id+2)%4):dist2,  str((id+3)%4):dist3}
+    # sort the dictionary by values:
+    sorted_distances = sorted(prices.iteritems(), key = lambda x : x[1])
+    # make a list of the first 2 keys as integers to be returned:
+    nearest_two_neighbors_list= [int(y[0][0]),int(y[1][0])]
+    return nearest_two_neighbors_list
 
 ###############################################################################
 #calculate_distance function:
