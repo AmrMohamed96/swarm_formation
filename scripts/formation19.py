@@ -479,8 +479,8 @@ def final():
                 rob1_goal_x_px = x1
                 rob1_goal_y_px = y1
                 shape_corner_robots[0]=[rob1_goal_x_px,rob1_goal_y_px]
-                nearest_two_neighbors=find_nearest_two_neighbors()
-                followers_routine_step1(R.ID,nearest_two_neighbors)
+                nearest_two_neighbors=find_nearest_two_neighbors(R.ID)
+                followers_routine_step1(R.ID,nearest_two_neighbors[0],nearest_two_neighbors[1])
                 #calculations()
                 move(R.ID)
                 leaderGoalFlag.publish(1)
@@ -493,8 +493,8 @@ def final():
                 rob1_goal_x_px = x1
                 rob1_goal_y_px = y1
                 shape_corner_robots[0]=[rob1_goal_x_px,rob1_goal_y_px]
-                nearest_two_neighbors=find_nearest_two_neighbors()
-                followers_routine_step1(R.ID,nearest_two_neighbors)
+                nearest_two_neighbors=find_nearest_two_neighbors(R.ID)
+                followers_routine_step1(R.ID,nearest_two_neighbors[0],nearest_two_neighbors[1])
                 #calculations()
 
         elif (R.status =='follower1'):
@@ -506,7 +506,7 @@ def final():
             if ( leader_goal_flag == 1 ):
                 global x2 ,y2,rob2_goal_x ,rob2_goal_y,rob2_goal_x_px ,rob2_goal_y_px
                 shape_corner_robots[1]=[rob2_goal_x_px,rob2_goal_y_px]
-                nearest_two_neighbors=find_nearest_two_neighbors()
+                nearest_two_neighbors=find_nearest_two_neighbors(R.ID)
                 followers_routine_step2(R.ID)
                 #calculations()
                 move(R.ID)
@@ -517,7 +517,7 @@ def final():
             if ( follower1_goal_flag == 1 ):
                 global x3 ,y3,rob3_goal_x_px ,rob3_goal_y_px
                 shape_corner_robots[2]=[rob3_goal_x,rob3_goal_y]
-                nearest_two_neighbors=find_nearest_two_neighbors()
+                nearest_two_neighbors=find_nearest_two_neighbors(R.ID)
                 follower_routine_step2(R.ID)
                 #calculations()
                 move(R.ID)
@@ -564,23 +564,23 @@ def followers_routine_step1(leader_id,f1_id,f2_id):
     # pub_ids = rospy.Publisher('leader_followers_ids',Int32MultiArray,queue_size=10)
     # pub_ids.publish(Int32MultiArray(data=numpy.array([leader_id , f1_id , f2_id],Int32MultiArray))
     # rospy.Subscriber('leader_followers_distances',Int32MultiArray, callback_leader_follower_distances )
-    leader_follower1_x = poses[leader_id][0]-poses[f1_id][0]
-    leader_follower1_y = poses[leader_id][1]-poses[f1_id][1]
-    leader_follower2_x = poses[leader_id][0]-poses[f2_id][0]
-    leader_follower2_y = poses[leader_id][1]-poses[f2_id][1]
-
+    leader_follower1_x = poses[leader_id][0] - poses[f1_id][0]
+    leader_follower1_y = poses[leader_id][1] - poses[f1_id][1]
+    leader_follower2_x = poses[leader_id][0] - poses[f2_id][0]
+    leader_follower2_y = poses[leader_id][1] - poses[f2_id][1]
+    #follower1 procedure:
     if (leader_follower1_x < leader_follower1_y and align_axis[leader_id][0]=0):
         align(poses[leader_id], f1_id ,poses[f1_id] ,'x' )
     else:
         align(poses[leader_id], f1_id ,poses[f1_id] ,'y' )
-    shape_sides -=1
+    shape_sides -= 1
     shape_corner_robots[f1_id]=next_goal[f1_id]
-
+    #follower2 procedure:
     if (leader_follower2_x < leader_follower2_y and align_axis[leader_id][0]=0):
         align(poses[leader_id], f2_id ,poses[f2_id] ,'x' )
     else:
         align(poses[leader_id], f2_id ,poses[f2_id] ,'y' )
-    shape_sides -=1
+    shape_sides -= 1
     shape_corner_robots[f2_id]=next_goal[f2_id]
 
 ###############################################################################
@@ -595,9 +595,26 @@ def followers_routine_step2(id):
 ###############################################################################
 #find_nearest_two_neighbors function:
 ###############################################################################
-def find_nearest_two_neighbors():
+def find_nearest_two_neighbors(id):
     ''' this function return the id of the nearest two nearest two neighbors
+        we want to calc the distance between the robot which is given its id and
+        the other 3  robots .. so we increase 1,2,3,... to the id and take the
+        reminder so if the id  given is 2 >> the results will become 3,0,1 which
+        are the other three robots ids and so on
     '''
+    dist1 = calculate_distance(poses[id],poses[(id+1)%4])
+    dist2 = calculate_distance(poses[id],poses[(id+2)%4])
+    dist3 = calculate_distance(poses[id],poses[(id+3)%4])
+    distances_list= [dist1,dist2,dist3]
+    list.sort(distances)
+    return [distances[0],distances[1]]
+
+###############################################################################
+#calculate_distance function:
+###############################################################################
+def calculate_distance([x1,y1],[x2,y2]):
+    dist= math.sqrt(pow((x2-x1),2)+pow((y2-y1),2))
+    return dist
 
 ###############################################################################
 #move function:
