@@ -463,7 +463,7 @@ def final():
     '''
     #print 'cm' ,R1_gx_cm , R1_gy_cm
     if ( shapes != '' ):
-        if (R.status=='leader'):
+        if (R.status==1): #leader
             global x1 ,y1,rob1_goal_x ,rob1_goal_y,rob1_goal_x_px ,rob1_goal_y_px
             leaderGoalFlag = rospy.Publisher('leader_reached_flag', Byte, queue_size=10)
             connections = leaderGoalFlag.get_num_connection()
@@ -497,7 +497,7 @@ def final():
                 followers_routine_step1(R.ID,nearest_two_neighbors[0],nearest_two_neighbors[1])
                 #calculations()
 
-        elif (R.status =='follower1'):
+        elif (R.status == 2):#follower1
             rospy.Subscriber('leader_reached_flag', Byte, leader_flag_callback)
             follower1GoalFlag = rospy.Publisher('follower1_reached_flag', Byte, queue_size=10)
             connections = follower1GoalFlag.get_num_connection()
@@ -505,48 +505,47 @@ def final():
                 follower1GoalFlag.publish(-1)
             if ( leader_goal_flag == 1 ):
                 global x2 ,y2,rob2_goal_x ,rob2_goal_y,rob2_goal_x_px ,rob2_goal_y_px
-                shape_corner_robots[1]=[rob2_goal_x_px,rob2_goal_y_px]
-                nearest_two_neighbors=find_nearest_two_neighbors(R.ID)
-                followers_routine_step2(R.ID)
+                nearest_not_aligned_neighbor = find_nearest_not_aligned_neighbor(R.ID)
+                follower_routine_step2(R.ID,nearest_not_aligned_neighbor)
                 #calculations()
                 move(R.ID)
                 follower1GoalFlag.publish(1)
 
-        elif (R.status =='follower2'):
+        elif (R.status == 3):#follower2
             rospy.Subscriber('follower1_reached_flag', Byte, follower1_flag_callback)
             if ( follower1_goal_flag == 1 ):
                 global x3 ,y3,rob3_goal_x_px ,rob3_goal_y_px
-                shape_corner_robots[2]=[rob3_goal_x,rob3_goal_y]
-                nearest_two_neighbors=find_nearest_two_neighbors(R.ID)
-                follower_routine_step2(R.ID)
+                nearest_not_aligned_neighbor = find_nearest_not_aligned_neighbor(R.ID)
+                follower_routine_step2(R.ID,nearest_not_aligned_neighbor)
                 #calculations()
                 move(R.ID)
                 follower2GoalFlag.publish(1)
 
-        else:#tare2t el sabken le el robot el rab3 :D
-            rob4_goal_x_cm = R1_gx_cm+ c2c_distance_px*grid_dim
-            rob4_goal_y_cm = R1_gy_cm+ c2c_distance_px*grid_dim
-            rob4_goal_x_px = math.ceil(rob4_goal_x_cm /grid_dim)
-            rob4_goal_y_px = math.ceil(rob4_goal_y_cm /grid_dim)+1
-
-            rob4_goal_cm = numpy.array([rob4_goal_x_cm ,rob4_goal_y_cm],Int32MultiArray)
-            R4_goal_cm=Int32MultiArray(data=rob4_goal_cm)
-            pub_rob4_goal_cm.publish(R4_goal_cm)
-            rob4_goal_px = numpy.array([rob4_goal_x_px ,rob4_goal_y_px ],Int32MultiArray)
-            R4_goal_px=Int32MultiArray(data=rob4_goal_px)
-            pub_rob4_goal_px.publish(R4_goal_px)
-            move(R.ID)
-
+        # elif (R.status== 4):#tare2t el sabken le el robot el rab3 :D
+        #     rob4_goal_x_cm = R1_gx_cm+ c2c_distance_px*grid_dim
+        #     rob4_goal_y_cm = R1_gy_cm+ c2c_distance_px*grid_dim
+        #     rob4_goal_x_px = math.ceil(rob4_goal_x_cm /grid_dim)
+        #     rob4_goal_y_px = math.ceil(rob4_goal_y_cm /grid_dim)+1
+        #
+        #     rob4_goal_cm = numpy.array([rob4_goal_x_cm ,rob4_goal_y_cm],Int32MultiArray)
+        #     R4_goal_cm=Int32MultiArray(data=rob4_goal_cm)
+        #     pub_rob4_goal_cm.publish(R4_goal_cm)
+        #     rob4_goal_px = numpy.array([rob4_goal_x_px ,rob4_goal_y_px ],Int32MultiArray)
+        #     R4_goal_px=Int32MultiArray(data=rob4_goal_px)
+        #     pub_rob4_goal_px.publish(R4_goal_px)
+        #     move(R.ID)
+        # else:
+        #     print "!donothing!"
     else:
         print 'waiting required_shape'
 
-    #change the positions into pixels and publish it
-    rob1_goal_x_px = math.ceil(rob1_goal_x /grid_dim)
-    rob1_goal_y_px = math.ceil(rob1_goal_y /grid_dim)+1
-    rob1_goal_px = numpy.array([rob1_goal_x_px ,rob1_goal_y_px ],Int32MultiArray)
-    R1_goal=Int32MultiArray(data=rob1_goal_px)
-    #print rob1_goal_px
-    pub_rob1_goal_px.publish(R1_goal)
+    # #change the positions into pixels and publish it
+    # rob1_goal_x_px = math.ceil(rob1_goal_x /grid_dim)
+    # rob1_goal_y_px = math.ceil(rob1_goal_y /grid_dim)+1
+    # rob1_goal_px = numpy.array([rob1_goal_x_px ,rob1_goal_y_px ],Int32MultiArray)
+    # R1_goal=Int32MultiArray(data=rob1_goal_px)
+    # #print rob1_goal_px
+    # pub_rob1_goal_px.publish(R1_goal)
 
 ###############################################################################
 #followers_routine_step1 function:
@@ -570,33 +569,41 @@ def followers_routine_step1(leader_id,f1_id,f2_id):
     leader_follower2_y = poses[leader_id][1] - poses[f2_id][1]
     #follower1 procedure:
     if (leader_follower1_x < leader_follower1_y and align_axis[leader_id][0]=0):
-        align(poses[leader_id], f1_id ,poses[f1_id] ,'x' )
+        align(poses[f1_id], f1_id ,poses[leader_id] ,'x' )
     else:
-        align(poses[leader_id], f1_id ,poses[f1_id] ,'y' )
+        align(poses[f1_id], f1_id ,poses[leader_id] ,'y' )
     shape_sides -= 1
     shape_corner_robots[f1_id]=next_goal[f1_id]
     #follower2 procedure:
     if (leader_follower2_x < leader_follower2_y and align_axis[leader_id][0]=0):
-        align(poses[leader_id], f2_id ,poses[f2_id] ,'x' )
+        align(poses[f2_id], f2_id ,poses[leader_id] ,'x' )
     else:
-        align(poses[leader_id], f2_id ,poses[f2_id] ,'y' )
+        align(poses[f2_id], f2_id ,poses[leader_id] ,'y' )
     shape_sides -= 1
     shape_corner_robots[f2_id]=next_goal[f2_id]
 
 ###############################################################################
 #followers_routine_step2 function:
 ###############################################################################
-def followers_routine_step2(id):
+def followers_routine_step2(follower_id,neighbor_id):
     ''' this function do the routine for each follower from follower itself
         to its neighbor
     '''
-
+    follower_neighbor_x = poses[follower_id][0] - poses[neighbor_id][0]
+    follower_neighbor_y = poses[follower_id][1] - poses[neighbor_id][1]
+    #procedure:
+    if ((follower_neighbor_x < follower_neighbor_y) and align_axis[follower_id][0]=0):
+        align(poses[neighbor_id], neighbor_id ,poses[follower_id] ,'x' )
+    else:
+        align(poses[neighbor_id], neighbor_id ,poses[follower_id] ,'y' )
+    shape_sides -= 1
+    shape_corner_robots[neighbor_id] = next_goal[neighbor_id]
 
 ###############################################################################
 #find_nearest_two_neighbors function:
 ###############################################################################
 def find_nearest_two_neighbors(id):
-    ''' this function return the id of the nearest two nearest two neighbors
+    ''' this function return the id of the nearest two nearest two neighbors.
         we want to calc the distance between the robot which is given its id and
         the other 3  robots .. so we increase 1,2,3,... to the id and take the
         reminder so if the id  given is 2 >> the results will become 3,0,1 which
@@ -609,8 +616,36 @@ def find_nearest_two_neighbors(id):
     # sort the dictionary by values:
     sorted_distances = sorted(prices.iteritems(), key = lambda x : x[1])
     # make a list of the first 2 keys as integers to be returned:
-    nearest_two_neighbors_list= [int(y[0][0]),int(y[1][0])]
+    nearest_two_neighbors_list= [int(sorted_distances[0][0]),int(sorted_distances[1][0])]
     return nearest_two_neighbors_list
+
+
+###############################################################################
+#find_nearest_not_aligned_neighbor function:
+###############################################################################
+def find_nearest_not_aligned_neighbor(id):
+    ''' this function return the id of the not not_aligned_neighbors to the
+        given robot id.
+        we want to calc the distance between the robot which is given its id and
+        the other 3  robots .. so we increase 1,2,3,... to the id and take the
+        reminder so if the id  given is 2 >> the results will become 3,0,1 which
+        are the other three robots ids and so on
+    '''
+    dist1 = calculate_distance(poses[id],poses[(id+1)%4])
+    dist2 = calculate_distance(poses[id],poses[(id+2)%4])
+    dist3 = calculate_distance(poses[id],poses[(id+3)%4])
+    distances ={str((id+1)%4):dist1,  str((id+2)%4):dist2,  str((id+3)%4):dist3}
+    # sort the dictionary by values:
+    sorted_distances = sorted(prices.iteritems(), key = lambda x : x[1])
+    # make a list of the first 1 keys as integers to be returned:
+    key1 = int(sorted_distances[0][0])
+    key2 = int(sorted_distances[1][0])
+    key3 = int(sorted_distances[2][0])
+    for(k in (key1,key2,key3)):
+        if(align_axis[k][0]!=1 and align_axis[k][1]!=1):
+            #then it is not aligned robot
+            nearest_not_aligned_neighbor = k
+    return nearest_not_aligned_neighbor
 
 ###############################################################################
 #calculate_distance function:
