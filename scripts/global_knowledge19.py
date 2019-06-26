@@ -193,7 +193,7 @@ def set_pattern_param_callback(data):
 ###############################################################################
 def global_node_listener():
     # subscribers that update align axis list of each robot independently
-    rospy.Subscriber('align_axis_robt1', Int32MultiArray, edit_align_rob1_callback)
+    rospy.Subscriber('align_axis_rob1', Int32MultiArray, edit_align_rob1_callback)
     rospy.Subscriber('align_axis_rob2', Int32MultiArray, edit_align_rob2_callback)
     rospy.Subscriber('align_axis_rob3', Int32MultiArray, edit_align_rob3_callback)
     rospy.Subscriber('align_axis_rob4', Int32MultiArray, edit_align_rob4_callback)
