@@ -8,10 +8,10 @@ import transformations
 import time
 
 # range sensor maximum distance in cm
-m = 35
+m = 17.5 * 3
 
 # robot position variables
-rob1_position = [34,0,0]
+rob1_position = [54,-1,-1]
 rob2_position = [35,0,0]
 rob3_position = [33,0,0]
 rob4_position = [0,0,0]
@@ -25,18 +25,22 @@ inrange_count = [0,0,0,0]
 def rob1_position_callback(data):
     global rob1_position
     rob1_position = data.data
+    # rob1_position[2] = rob1_position[2]/100
 
 def rob2_position_callback(data):
     global rob2_position
     rob2_position = data.data
+    # rob2_position[2] = rob2_position[2]/100
 
 def rob3_position_callback(data):
     global rob3_position
     rob3_position = data.data
+    # rob3_position[2] = rob3_position[2]/100
 
 def rob4_position_callback(data):
     global rob4_position
     rob4_position = data.data
+    # rob4_position[2] = rob4_position[2]/100
 
 ###############################################################################
 # Re-Running the detection algorithm callback
@@ -55,7 +59,11 @@ def rerun_range_sensors_callback(data):
 ###############################################################################
 def set_and_check_leader():
     """
-    Function loops over the inrange_count list, checks how sees the most
+    Function loops over the inrange_count list, checks        rospy.Subscriber('rob1_CurrentPose', Int32MultiArray, rob1_position_callback)
+        rospy.Subscriber('rob2_CurrentPose', Int32MultiArray, rob2_position_callback)
+        rospy.Subscriber('rob3_CurrentPose', Int32MultiArray, rob3_position_callback)
+        rospy.Subscriber('rob4_CurrentPose', Int32MultiArray, rob4_position_callback)
+        rospy.Subscriber('rerun_range_sensors', Byte, rerun_range_sensors_callback) how sees the most
     robots in the system and assigns them as a leader
 
     If 2 robots have the same number, the first one in the list will be assigned
@@ -67,7 +75,7 @@ def set_and_check_leader():
     desired_leader = 0
     max = 0
     for i in range( len(inrange_count) ):
-        if ( inrange_count[i] >= max ):
+        if ( inrange_count[i] > max ):
             max = inrange_count[i]
             desired_leader = i
 
@@ -87,6 +95,7 @@ def set_and_check_leader():
 def check_points_in_range(current_rob_pos, other_rob_pos):
     # calculate bottom right corner of the bounding rectangle
     rx, ry, rth = current_rob_pos
+    rth = (rth/100) + (pi/2)
     zx = round( rx - ( m * sin(rth) ), 3)
     zy = round( ry + ( m * cos(rth) ), 3)
 
@@ -160,6 +169,7 @@ if __name__ == '__main__':
         rospy.Subscriber('rob3_CurrentPose', Int32MultiArray, rob3_position_callback)
         rospy.Subscriber('rob4_CurrentPose', Int32MultiArray, rob4_position_callback)
         rospy.Subscriber('rerun_range_sensors', Byte, rerun_range_sensors_callback)
+        time.sleep(5)
 
         # initialize publisher
         rangePub = rospy.Publisher('inrange_count', Int32MultiArray, queue_size=10)

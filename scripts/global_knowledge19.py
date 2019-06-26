@@ -40,6 +40,8 @@ leader_history = [0,0,0,0]
 # next goals for all robots, index indicates robot number
 next_goals = [ [0,0], [0,0], [0,0], [0,0] ]
 
+grid_size = 17.5
+
 ###############################################################################
 # Callbacks that take align axis from each robot and update the global align axis
 ###############################################################################
@@ -120,7 +122,7 @@ def req_c2c_callback(data):
     EDITING STILL REQUIRED****************************************************
     """
     global shape_length
-    shape_length = int(data.data)
+    shape_length = int(data.data) * grid_size
     rospy.loginfo('Current Shape_Length is: {}'.format(shape_length))
 
 def robots_num_callback(data):
@@ -167,11 +169,8 @@ def assign_followers_callback(data):
 ###############################################################################
 def update_next_goals_callback(data):
     global next_goals
-    next_goals = list()
-    next_goals = next_goals.append( [data.data[0], data.data[1]] )
-    next_goals = next_goals.append( [data.data[2], data.data[3]] )
-    next_goals = next_goals.append( [data.data[4], data.data[5]] )
-    next_goals = next_goals.append( [data.data[6], data.data[7]] )
+    next_goal = np.reshape(data.data, (4,2))
+    next_goals = next_goal
 
 ###############################################################################
 # Set Pattern Parameters Callback
@@ -194,7 +193,7 @@ def set_pattern_param_callback(data):
 ###############################################################################
 def global_node_listener():
     # subscribers that update align axis list of each robot independently
-    rospy.Subscriber('align_axis_rob1', Int32MultiArray, edit_align_rob1_callback)
+    rospy.Subscriber('align_axis_robt1', Int32MultiArray, edit_align_rob1_callback)
     rospy.Subscriber('align_axis_rob2', Int32MultiArray, edit_align_rob2_callback)
     rospy.Subscriber('align_axis_rob3', Int32MultiArray, edit_align_rob3_callback)
     rospy.Subscriber('align_axis_rob4', Int32MultiArray, edit_align_rob4_callback)
@@ -204,9 +203,6 @@ def global_node_listener():
     rospy.Subscriber('shape_corner_rob2', Int32MultiArray, edit_corners_rob2_callback)
     rospy.Subscriber('shape_corner_rob3', Int32MultiArray, edit_corners_rob3_callback)
     rospy.Subscriber('shape_corner_rob4', Int32MultiArray, edit_corners_rob4_callback)
-
-    # subscriber that takes the pattern parameters (Shape_Length, Shape_Sides, X_Sides, Y_Sides)
-    rospy.Subscriber('pattern_parameters', Int32MultiArray, set_pattern_param_callback)
 
     # subscriber that updates followers
     rospy.Subscriber('assign_follower_robots',Int32MultiArray, assign_followers_callback)
