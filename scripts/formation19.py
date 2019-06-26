@@ -157,8 +157,6 @@ def callback_rob3_current_pos(data): #current position of robot 3
     x3 = data.data[0]
     y3 = data.data[1]
     a3 = data.data[2]
-    shape()
-    final()
 
 def callback_rob4_current_pos(data): #current position of robot 4
     global x4, y4, a3
@@ -166,6 +164,8 @@ def callback_rob4_current_pos(data): #current position of robot 4
     x4 = data.data[0]
     y4 = data.data[1]
     a4 = data.data[2]
+    shape()
+    final()
 
 def callback_robots_current_poses(data):
     ''' this call back fn takes all current poses from camera direct in one array
