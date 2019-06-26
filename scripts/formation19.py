@@ -137,7 +137,7 @@ def callback_c2c_distance_px(data): #center to center distance in pixels
     global c2c_distance_px
     c2c_distance_px = data.data
 
-def callback_rob1_current_pos(data): #current position of robot1 
+def callback_rob1_current_pos(data): #current position of robot1
     global x1, y1, a1
     #rospy.loginfo('robot1 co. = %s', data.data)
     x1 = data.data[0]
@@ -519,14 +519,14 @@ def followers_routine_step1(leader_id,f1_id,f2_id):
     leader_follower2_x = poses[leader_id][0] - poses[f2_id][0]
     leader_follower2_y = poses[leader_id][1] - poses[f2_id][1]
     #follower1 procedure:
-    if (leader_follower1_x < leader_follower1_y and align_axis[leader_id][0]=0):
+    if ((leader_follower1_x < leader_follower1_y) and align_axis[leader_id][0]==0):
         align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'x' )
     else:
         align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'y' )
     shape_sides -= 1
     shape_corner_robots[f1_id]=next_goal[f1_id]
     #follower2 procedure:
-    if (leader_follower2_x < leader_follower2_y and align_axis[leader_id][0]=0):
+    if ((leader_follower2_x < leader_follower2_y) and align_axis[leader_id][0]==0):
         align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'x' )
     else:
         align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'y' )
@@ -543,7 +543,7 @@ def followers_routine_step2(follower_id,neighbor_id):
     follower_neighbor_x = poses[follower_id][0] - poses[neighbor_id][0]
     follower_neighbor_y = poses[follower_id][1] - poses[neighbor_id][1]
     #procedure:
-    if ((follower_neighbor_x < follower_neighbor_y) and align_axis[follower_id][0]=0):
+    if ((follower_neighbor_x < follower_neighbor_y) and align_axis[follower_id][0]==0):
         align(poses[neighbor_id], neighbor_id ,poses[follower_id],leader_id ,'x' )
     else:
         align(poses[neighbor_id], neighbor_id ,poses[follower_id],leader_id ,'y' )
@@ -592,16 +592,17 @@ def find_nearest_not_aligned_neighbor(id):
     key2 = int(sorted_distances[1][0])
     key3 = int(sorted_distances[2][0])
     nearest_not_aligned_neighbor=key1
-    for(k in (key1,key2,key3)):
-        if(align_axis[k][0]!=1 and align_axis[k][1]!=1):#then it is not aligned robot
-        nearest_not_aligned_neighbor = k
+    for k in [key1,key2,key3]:
+        if(align_axis[k][0]!=1 and align_axis[k][1]!=1):
+            #then it is not aligned
+            robotnearest_not_aligned_neighbor = k
     return nearest_not_aligned_neighbor
 
 ###############################################################################
 #calculate_distance function:
 ###############################################################################
-def calculate_distance([x1,y1],[x2,y2]):
-    dist= math.sqrt(pow((x2-x1),2)+pow((y2-y1),2))
+def calculate_distance(p1,p2):
+    dist= math.sqrt(pow((p2[0]-p1[0]),2)+pow((p2[1]-p1[1]),2))
     return dist
 
 ###############################################################################
