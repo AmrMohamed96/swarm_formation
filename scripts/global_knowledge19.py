@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from __future__ import division
 import rospy
-from std_msgs.msg import Int32MultiArray, Int32, Byte
+from std_msgs.msg import Int32MultiArray, Int32, Byte, String
 import numpy as np
 
 """
@@ -27,6 +27,7 @@ shape_corner_robots = [ [0,0],[0,0],[0,0],[0,0] ]
 # pattern estimation parameters
 shape_length = 0
 shape_sides = 0
+shape_name = ''
 x_sides = [0,0,0,0]
 y_sides = [0,0,0,0]
 
@@ -86,6 +87,54 @@ def edit_corners_rob4_callback(data):
     shape_corner_robots[3][1] = data.data[1]
 
 ###############################################################################
+# Callbacks for pattern estimation topics
+###############################################################################
+def req_shape_callback(data):
+    """
+    Function should take the required shape from user
+    then assign shape_sides accordingly
+    """
+    global shape_sides, shape_name
+    if data.data == "square":
+        shape_sides = 4
+        shape_name = data.data
+        rospy.loginfo("Current shape is Square. Shape_Sides set to: {}" .format(shape_sides))
+    elif data.data == 'triangle':
+        shape_sides = 3
+        shape_name = data.data
+        rospy.loginfo("Current shape is Triangle. Shape_Sides set to: {}" .format(shape_sides))
+    elif data.data =="l-shape":
+        shape_sides = 2
+        shape_name = data.data
+        rospy.loginfo("Current shape is L-Shape. Shape_Sides set to: {}" .format(shape_sides))
+    elif data.data =="line" or data.data =="column" or data.data == 'diagonal':
+        shape_sides = 1
+        shape_name = data.data
+        rospy.loginfo("Current shape is {}. Shape_Sides set to: {}" .format(data.data,shape_sides))
+
+def req_c2c_callback(data):
+    """
+    Function should take c2c distance, compare it to the required shape
+    and then calculate shape length for that scenario
+
+    EDITING STILL REQUIRED****************************************************
+    """
+    global shape_length
+    shape_length = int(data.data)
+    rospy.loginfo('Current Shape_Length is: {}'.format(shape_length))
+
+def robots_num_callback(data):
+    """
+    Function should check if robot number exceeds required shape corners
+    then assign saturation values for each side
+
+    EDITIN STILL REQUIRED****************************************************
+    """
+    global x_sides, y_sides
+    x_sides = [0,0,0,0]
+    y_sides = [0,0,0,0]
+
+###############################################################################
 # Function to set the leader status
 ###############################################################################
 def set_new_leader_callback(data):
@@ -94,6 +143,7 @@ def set_new_leader_callback(data):
     robot_status[data.data - 1] = 1
     if prev_robot_status != robot_status:
         leader_history[data.data -1] += 1
+        rospy.loginfo("New Leader: Robot " + str(data.data) + " is now leader")
     prev_robot_status = robot_status
 
 ###############################################################################
@@ -103,6 +153,7 @@ def reset_leader_stats_callback(data):
     global robot_status
     if (data.data == 1):
         robot_status = [9,9,9,9]
+        rospy.loginfo("Leaders has been reset. Execution of follower 4 routine ready")
 
 ###############################################################################
 # Function to update followers status
@@ -169,6 +220,11 @@ def global_node_listener():
     # subscriber to reset the leader
     rospy.Subscriber('reset_leader_stats', Byte, reset_leader_stats_callback)
 
+    # subscriber to shape parameters
+    rospy.Subscriber('req_shape', String, req_shape_callback)
+    rospy.Subscriber('c2c_distance_px', String, req_c2c_callback)
+    rospy.Subscriber('robots_num', String, robots_num_callback)
+
 ###############################################################################
 # Main code of the global node
 ###############################################################################
@@ -182,6 +238,7 @@ def global_talker():
     shapeSides = rospy.Publisher('shape_sides', Int32, queue_size=10)
     xSides = rospy.Publisher('x_sides', Int32MultiArray, queue_size=10)
     ySides = rospy.Publisher('y_sides', Int32MultiArray, queue_size=10)
+    shapeName = rospy.Publisher('formation_shape_name', String, queue_size=10)
 
     robotStats = rospy.Publisher('robot_status', Int32MultiArray, queue_size=10)
     leaderHistory = rospy.Publisher('leader_history', Int32MultiArray, queue_size=10)
@@ -190,25 +247,29 @@ def global_talker():
     # Starting the subscribers
     global_node_listener()
 
-    while not rospy.is_shutdown():
-        # broadcasting all nodes data
-        alignPub.publish( Int32MultiArray(data = np.reshape(align_axis, (8)) ))
-        shapeCorners.publish( Int32MultiArray(data = np.reshape(shape_corner_robots, (8))) )
-        shapeLength.publish(shape_length)
-        shapeSides.publish(shape_sides)
-        xSides.publish( Int32MultiArray(data=x_sides) )
-        ySides.publish( Int32MultiArray(data=y_sides) )
+    try:
+        while not rospy.is_shutdown():
+            # broadcasting all nodes data
+            alignPub.publish( Int32MultiArray(data = np.reshape(align_axis, (8)) ))
+            shapeCorners.publish( Int32MultiArray(data = np.reshape(shape_corner_robots, (8))) )
+            shapeLength.publish(shape_length)
+            shapeSides.publish(shape_sides)
+            xSides.publish( Int32MultiArray(data=x_sides) )
+            ySides.publish( Int32MultiArray(data=y_sides) )
+            shapeName.publish(shape_name)
 
-        robotStats.publish( Int32MultiArray(data=robot_status) )
-        leaderHistory.publish( Int32MultiArray(data=leader_history) )
-        nextGoals.publish( Int32MultiArray( data= np.reshape(next_goals, (8)) ) )
+            robotStats.publish( Int32MultiArray(data=robot_status) )
+            leaderHistory.publish( Int32MultiArray(data=leader_history) )
+            nextGoals.publish( Int32MultiArray( data= np.reshape(next_goals, (8)) ) )
+
+    except KeyboardInterrupt:
+        rospy.loginfo("Node was forced to close")
 
 if __name__ == '__main__':
     try:
         # initializing the global node
         rospy.init_node('formation_global_knowledge')
         rospy.loginfo("%s started" % rospy.get_name())
-        global_node_listener()
         global_talker()
     except rospy.ROSInterruptException:
         pass

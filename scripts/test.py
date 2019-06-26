@@ -24,10 +24,17 @@ def test():
     pos.data = [5,5]
 
     newLead = rospy.Publisher('set_new_leader', Byte, queue_size=1)
-    print "Entering Sleep Time"
+    rospy.loginfo("Sleeping for 5 seconds")
     time.sleep(5)
-    print "Publishing"
-    newLead.publish(3)
+    newLead.publish(1)
+    rospy.loginfo("Published new leader once")
+
+
+    resetLead = rospy.Publisher('reset_leader_stats', Byte, queue_size=1)
+    rospy.loginfo("Sleeping for 5 seconds")
+    time.sleep(5)
+    resetLead.publish(1)
+    rospy.loginfo("Reset Leader Status")
 
     while not rospy.is_shutdown():
         pub1.publish(test)
