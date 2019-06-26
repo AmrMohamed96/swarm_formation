@@ -14,6 +14,7 @@ import time
 #desired orientation difference:
 Ad2 =Ad3 = 0
 y=0
+f=0
 #desired distance:
 Dd=0 #desired distance of the shape
 c2c_distance_px=1 # it is published from the user input and if not it by default =1
