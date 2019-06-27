@@ -119,14 +119,14 @@ def set_and_check_leader():
         elif (( x_negative_offset <= (grid_dimension * grid_blocks) ) and ( y_negative_offset <= (grid_dimension * grid_blocks) )):
             rospy.loginfo('Diagonal formation is POSSIBLE in -ve direction with ROBOT {} as leader'.format(desired_leader +1))
         else:
-            rospy.loginfo('Diagonal formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
+            rospy.logwarn('Diagonal formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
             # raise a flag for the formation to move the robot in another position
             possibile_flag = 0
 
     # other shapes are tested here
     else:
         # since most shapes are horizontal or vertical, we test that the positions are within any boundary of the
-        # grid. The (-1) for the blocks is because the robot can't get near the reference tag 
+        # grid. The (-1) for the blocks is because the robot can't get near the reference tag
         if current_shape_length > grid_dimension * (grid_blocks-1):
             rospy.logwarn('FORMATION IS ABSOLUTELY NOT POSSIBLE WITH CURRENT SHAPE LENGTH')
             rospy.logwarn('NO LEADER WILL BE SELECTED. PLEASE CHANGE PARAMETERS\n')
@@ -136,7 +136,7 @@ def set_and_check_leader():
             if ( x_positive_offset <= (grid_dimension * grid_blocks) ) and ( x_negative_offset > grid_dimension ) and ( y_positive_offset <= (grid_dimension * grid_blocks) ) and ( y_negative_offset > grid_dimension ):
                 rospy.loginfo('Square formation is POSSIBLE with ROBOT {} as leader'.format(desired_leader +1))
             else:
-                rospy.loginfo('Square formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
+                rospy.logwarn('Square formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
                 # raise a flag for the formation to move the robot in another position
                 possibile_flag = 0
 
@@ -145,7 +145,7 @@ def set_and_check_leader():
                 rospy.loginfo('Line formation is POSSIBLE with ROBOT {} as leader'.format(desired_leader +1))
 
             else:
-                rospy.loginfo('Line formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
+                rospy.logwarn('Line formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
                 # raise a flag for the formation to move the robot in another position
                 possibile_flag = 0
 
@@ -153,7 +153,7 @@ def set_and_check_leader():
             if ( y_positive_offset <= (grid_dimension * grid_blocks) ) and ( y_negative_offset > grid_dimension ):
                 rospy.loginfo('Column formation is POSSIBLE with ROBOT {} as leader'.format(desired_leader +1))
             else:
-                rospy.loginfo('Column formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
+                rospy.logwarn('Column formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
                 # raise a flag for the formation to move the robot in another position
                 possibile_flag = 0
 

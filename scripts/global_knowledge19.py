@@ -118,8 +118,6 @@ def req_c2c_callback(data):
     """
     Function should take c2c distance, compare it to the required shape
     and then calculate shape length for that scenario
-
-    EDITING STILL REQUIRED****************************************************
     """
     global shape_length
     shape_length = int(data.data) * grid_size
@@ -129,8 +127,6 @@ def robots_num_callback(data):
     """
     Function should check if robot number exceeds required shape corners
     then assign saturation values for each side
-
-    EDITIN STILL REQUIRED****************************************************
     """
     global x_sides, y_sides
     x_sides = [0,0,0,0]
@@ -154,7 +150,7 @@ def set_new_leader_callback(data):
 def reset_leader_stats_callback(data):
     global robot_status
     if (data.data == 1):
-        robot_status = [9,9,9,9]
+        robot_status = [5,5,5,9]
         rospy.loginfo("Leaders has been reset. Execution of follower 4 routine ready")
 
 ###############################################################################
