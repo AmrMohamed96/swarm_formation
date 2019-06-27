@@ -20,7 +20,7 @@ rob3_pos = [52, 70, (-pi/2)*100]
 rob4_pos = [122,140, (-pi/2)*100]
 
 # Collecting all robot positions in one list
-all_robots_pos = np.reshape([rob1_pos, rob2_pos, rob3_pos, rob4_pos], (12))
+all_robots_pos = np.reshape([rob1_pos[0],rob1_pos[1], rob2_pos[0],rob2_pos[1],rob3_pos[0],rob3_pos[1], rob4_pos[0],rob4_pos[1]], (8))
 
 
 def test_scenario_talker():
