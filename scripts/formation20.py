@@ -74,7 +74,7 @@ class RobotClass:
     ID= -1
     status=-1
     def __init__(self,status=0):
-        self.ID = rospy.get_param('~robot_id', 1)
+        self.ID = rospy.get_param('~robot_id', 4)
         self.status=status
     def set_ID(self, ID):
         self.ID = ID
@@ -806,7 +806,7 @@ def check_positions():
 #Main:
 ###############################################################################
 if __name__== '__main__':
-    rospy.init_node('formation_node_rob1')
+    rospy.init_node('formation_node_rob4')
 
     while not rospy.is_shutdown():
         who_am_I()
