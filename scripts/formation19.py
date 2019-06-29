@@ -511,6 +511,8 @@ def follower2_flag_callback(data):
     global follower2_goal_flag
     follower2_goal_flag = data.data
 
+leader_finish_flag = 0
+
 def final():
     ''' this function is run after the whole robots position is subscribed and
         are ready to use in this code.
@@ -518,7 +520,7 @@ def final():
         check leader goal is modified or not and calculate the follower1 and 2
         new goals and publish them.
     '''
-    global next_goal, align_axis,shape_corner_robots,poses
+    global next_goal, align_axis,shape_corner_robots,poses, leader_finish_flag
     #rospy.loginfo('Entered the final() function')
 
     if ( shapes != '' ):
@@ -528,6 +530,8 @@ def final():
 
             # creating a leader flag publisher to raise the flag after leader has finished it's procedure
             leaderGoalFlag = rospy.Publisher('leader_reached_flag', Byte, queue_size=10)
+
+            leaderGoalFlag.publish(leader_finish_flag)
 
             if not leader_calc_flag:
                 rospy.loginfo('Doing leader-based calculations ... 1st RUN')
@@ -553,6 +557,7 @@ def final():
 
                     move(R.ID)
                     leader_calc_flag = True
+                    leader_finish_flag = 1
 
                 else:
                     rospy.loginfo('Leader does not need to move. Calculating for followers')
@@ -575,8 +580,9 @@ def final():
                     followers_routine_step1(R.ID-1,nearest_two_neighbors[0],nearest_two_neighbors[1])
 
                     leader_calc_flag = True
-
-                leaderGoalFlag.publish(1)
+                    leader_finish_flag = 1
+                    
+                leaderGoalFlag.publish(leader_finish_flag)
                 time.sleep(1)
 
         elif (R.status == 2):#follower1

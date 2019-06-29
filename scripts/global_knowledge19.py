@@ -150,7 +150,7 @@ def set_new_leader_callback(data):
 def reset_leader_stats_callback(data):
     global robot_status
     if (data.data == 1):
-        robot_status = [5,5,5,9]
+        robot_status = [0,0,0,0]
         rospy.loginfo("Leaders has been reset. Execution of follower 4 routine ready")
 
 ###############################################################################

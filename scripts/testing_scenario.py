@@ -44,7 +44,7 @@ def test_scenario_talker():
         all.publish( Int32MultiArray(data=all_robots_pos) )
 
         #adding 0.5 second delay to simulate camera delay
-        sleep(0.5)
+        #sleep(0.5)
 
 if __name__ == '__main__':
     try:

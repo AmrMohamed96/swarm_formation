@@ -74,7 +74,7 @@ class RobotClass:
     ID= -1
     status=-1
     def __init__(self,status=0):
-        self.ID = rospy.get_param('~robot_id', 4)
+        self.ID = rospy.get_param('~robot_id', 2)
         self.status=status
     def set_ID(self, ID):
         self.ID = ID
@@ -197,9 +197,10 @@ def callback_robots_current_poses(data):
     '''
     global poses
     poses = numpy.reshape(data.data, (4,2))
-    # for i in range(0,4):
-    #     rospy.loginfo('robot{} current position is {} '.format(i+1,poses[i]))
-    # print"_____________________________________________________________________"
+
+    #for i in range(0,4):
+    #    rospy.loginfo('robot{} current position is {} '.format(i+1,poses[i]))
+    #    print"_____________________________________________________________________"
 
 def callback_leader_final_goal(data):
     global R1_gx_cm, R1_gy_cm
@@ -221,7 +222,7 @@ def who_am_I():
     pub_corners_rob = rospy.Publisher('corners_rob'+str(R.ID), Int32MultiArray,queue_size=10)
     rospy.Subscriber('robot_status', Int32MultiArray, callback_status)
 
-    time.sleep(5)
+    #time.sleep(5)
 
     rospy.loginfo('Robot Class Created with ID {}'.format(R.ID))
     print "I am robot", R.ID , "with status:" , R.status
@@ -268,24 +269,31 @@ def justify_distance(next,base,length):
     global next_goal, align_axis
     #1. initialize justified Point to 0,0:
     justified_point=[0,0]
-    print 'x of next and base',next[0], base[0]
-    print 'y of next and base',next[1], base[1]
+    print 'BASE COORDINATES: ', base[0], base[1]
+    print 'NEXT COORDINATES: ', next[0], next[1]
+
 
     #2. check that next and bas sharing the same x:
     if next[0]==base[0]:
         justified_point[0]= base[0]
         if base[1]<next[1]: #next is above the base
             justified_point[1]=base[1]+length
+            print "ADDING TO X JUSTIFY"
         else: #next is below
             justified_point[1]=base[1]-length
+            print "DECREMENTING TO X JUSTIFY"
 
     #3. check that next and bas sharing the same y:
     elif next[1]==base[1]:
         justified_point[1]= base[1]
+        print ("Justified Point before op : {}".format(justified_point))
         if base[0]<next[0]: #next is above the base
             justified_point[0]=base[0]+length
+            print "ADDING TO Y JUSTIFY"
         else:
+            print "DECREMENTING TO Y JUSTIFY"
             justified_point[0]=base[0]-length
+            print ("Justified Point after op : {}".format(justified_point))
     # else:
     #     print "no justify yet(error)"
     print "justified point:", justified_point
@@ -317,7 +325,7 @@ def align(follower,follower_num,leader,leader_num,direction):
         align_axis_follower = align_axis[follower_num]
         align_axis_leader[0]=1
         align_axis_follower[0]=1
-        rospy.loginfo('Align Axis for Leader is: {}'.format(align_axis_leader))
+        rospy.loginfo('Align Axis for Robot {} is: {}'.format(follower_num+1, align_axis_leader))
         rospy.loginfo('next_goal_list is: {}'.format(next_list))
 
         pub_align_follower = rospy.Publisher('align_axis_rob'+str(follower_num+1), Int32MultiArray, queue_size=10)
@@ -338,7 +346,7 @@ def align(follower,follower_num,leader,leader_num,direction):
         align_axis_follower = align_axis[follower_num]
         align_axis_leader[1]=1
         align_axis_follower[1]=1
-        rospy.loginfo('Align Axis for Leader is: {}'.format(align_axis_leader))
+        rospy.loginfo('Align Axis for Robot {} is: {}'.format(follower_num+1, align_axis_leader))
         rospy.loginfo('next_goal_list is: {}'.format(next_list))
 
         pub_align_follower = rospy.Publisher('align_axis_rob'+str(follower_num+1), Int32MultiArray ,queue_size=10)
@@ -348,13 +356,14 @@ def align(follower,follower_num,leader,leader_num,direction):
         pub_align_follower.publish( Int32MultiArray(data=align_axis_follower))
 
     #update next_goal of the follower:
+    print "ASSUMED LEADER COORDINATES ARE : ", leader
     next_list[follower_num] = justify_distance(next_list[follower_num],leader,shape_length)
+
     next_list=numpy.reshape(next_list,(8))
     rospy.loginfo('next_goal_list is: {}'.format(next_list))
     pub_update_next_goals.publish(Int32MultiArray(data= next_list))
     time.sleep(5)
     rospy.loginfo('next_goal{}, next_goal_list{}'.format(next_goal,next_list))
-
 
 ###############################################################################
 #shape function:
@@ -511,6 +520,8 @@ def follower2_flag_callback(data):
     global follower2_goal_flag
     follower2_goal_flag = data.data
 
+leader_finish_flag = 0
+
 def final():
     ''' this function is run after the whole robots position is subscribed and
         are ready to use in this code.
@@ -518,7 +529,7 @@ def final():
         check leader goal is modified or not and calculate the follower1 and 2
         new goals and publish them.
     '''
-    global next_goal, align_axis,shape_corner_robots,poses
+    global next_goal, align_axis,shape_corner_robots,poses, leader_finish_flag
     #rospy.loginfo('Entered the final() function')
 
     if ( shapes != '' ):
@@ -528,6 +539,8 @@ def final():
 
             # creating a leader flag publisher to raise the flag after leader has finished it's procedure
             leaderGoalFlag = rospy.Publisher('leader_reached_flag', Byte, queue_size=10)
+
+            leaderGoalFlag.publish(leader_finish_flag)
 
             if not leader_calc_flag:
                 rospy.loginfo('Doing leader-based calculations ... 1st RUN')
@@ -553,6 +566,7 @@ def final():
 
                     move(R.ID)
                     leader_calc_flag = True
+                    leader_finish_flag = 1
 
                 else:
                     rospy.loginfo('Leader does not need to move. Calculating for followers')
@@ -575,8 +589,9 @@ def final():
                     followers_routine_step1(R.ID-1,nearest_two_neighbors[0],nearest_two_neighbors[1])
 
                     leader_calc_flag = True
+                    leader_finish_flag = 1
 
-                leaderGoalFlag.publish(1)
+                leaderGoalFlag.publish(leader_finish_flag)
                 time.sleep(1)
 
         elif (R.status == 2):#follower1
@@ -595,6 +610,9 @@ def final():
             
             global x2 ,y2,rob2_goal_x ,rob2_goal_y,rob2_goal_x_px ,rob2_goal_y_px
             nearest_not_aligned_neighbor = find_nearest_not_aligned_neighbor(R.ID-1)
+
+            rospy.loginfo('Nearest not algined neigbours is {}'.format(nearest_not_aligned_neighbor))
+
             followers_routine_step2(R.ID-1,nearest_not_aligned_neighbor)
 
             move(R.ID)
@@ -679,18 +697,18 @@ def followers_routine_step2(follower_id,neighbor_id):
     ''' this function do the routine for each follower from follower itself
         to its neighbor
     '''
-    global shape_sides
+    global shape_sides, next_goal
     rospy.loginfo('Started calculations for follower 2 .... FOLLOWER 2 ROUTINE')
 
-    follower_neighbor_x = poses[follower_id][0] - poses[neighbor_id][0]
-    follower_neighbor_y = poses[follower_id][1] - poses[neighbor_id][1]
+    follower_neighbor_x = next_goal[follower_id][0] - poses[neighbor_id][0]
+    follower_neighbor_y = next_goal[follower_id][1] - poses[neighbor_id][1]
 
     #procedure:
     if ((follower_neighbor_x < follower_neighbor_y) or align_axis[follower_id][0]==0):
-        align(poses[neighbor_id], neighbor_id ,poses[follower_id],follower_id ,'x' )
+        align(poses[neighbor_id], neighbor_id ,next_goal[follower_id],follower_id ,'x' )
 
     elif((follower_neighbor_x > follower_neighbor_y) or align_axis[follower_id][1]==1):
-        align(poses[neighbor_id], neighbor_id ,poses[follower_id],follower_id ,'y' )
+        align(poses[neighbor_id], neighbor_id ,next_goal[follower_id],follower_id ,'y' )
 
     shape_sides -= 1
     shape_corner_robots[neighbor_id] = next_goal[neighbor_id]
@@ -725,6 +743,7 @@ def find_nearest_two_neighbors(id):
     update_all_status = all_status
     update_all_status[nearest_two_neighbors_list[0]] = 2
     update_all_status[nearest_two_neighbors_list[1]] = 3
+
     pub_assign_follower_robots.publish( Int32MultiArray(data=update_all_status))
 
     return nearest_two_neighbors_list
@@ -762,6 +781,7 @@ def find_nearest_not_aligned_neighbor(id):
         if(align_axis[k][0]!=1 and align_axis[k][1]!=1):
             #then it is not aligned
             robot_nearest_not_aligned_neighbor_id = k
+            print "Nearest Not Aligned CALCULATIONS", robot_nearest_not_aligned_neighbor_id
             
     update_all_status = []
     update_all_status = all_status
