@@ -10,7 +10,7 @@ import time
 # m is the range sensor maximum distance in cm
 grid_dimension = 17.5
 grid_blocks = 10
-visible_blocks = 3
+visible_blocks = 4
 m = grid_dimension * visible_blocks
 
 # robot position variables
@@ -133,7 +133,7 @@ def set_and_check_leader():
             rospy.signal_shutdown("No possible formation")
 
         if current_shape == 'square':
-            if ( x_positive_offset <= (grid_dimension * grid_blocks) ) and ( x_negative_offset > grid_dimension ) and ( y_positive_offset <= (grid_dimension * grid_blocks) ) and ( y_negative_offset > grid_dimension ):
+            if (( x_positive_offset <= (grid_dimension * grid_blocks) ) or ( x_negative_offset > grid_dimension )) and (( y_positive_offset <= (grid_dimension * grid_blocks) ) or ( y_negative_offset > grid_dimension )):
                 rospy.loginfo('Square formation is POSSIBLE with ROBOT {} as leader'.format(desired_leader +1))
             else:
                 rospy.logwarn('Square formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
@@ -268,6 +268,7 @@ if __name__ == '__main__':
             while not rospy.is_shutdown():
                 rangePub.publish( Int32MultiArray(data=inrange_count) )
                 possibleFormation.publish( possibile_flag )
+                rangePub.publish( Int32MultiArray(data=inrange_count))
                 #Sleeps for 1 Minute - Used to reduce CPU usage
                 rospy.loginfo('Sleeping for a minute to save power')
                 rospy.sleep(60)

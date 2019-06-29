@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import argparse
 import sys
 import rospy
@@ -8,22 +7,30 @@ import numpy
 import math
 import os
 import time
+
 ###############################################################################
-#initialize all variables:
+# 2018 FORMATION VARIABLES
 ###############################################################################
 #desired orientation difference:
 Ad2 =Ad3 = 0
 #desired distance of the formation shape
 Dd=0
-#constants about formation (2019):
-c2c_distance_px=1 # it is published from the user input and if not it by default =1
-grid_dim=17.5 #cm
-grid_dig_dim=24.75 #cm
-swarm_robots_num=4 # this year we have 4 robots
 #orientation in radians:
 A2=A3=0
 #formation shape:
 shapes = ''
+
+###############################################################################
+# CONSTANTS FOR THE FORMATION 2019
+###############################################################################
+c2c_distance_px=1 # it is published from the user input and if not it by default =1
+grid_dim=17.5 #cm
+grid_dig_dim=24.75 #cm
+swarm_robots_num=4 # this year we have 4 robots
+
+###############################################################################
+# VARIABLES THAT ARE LATER CHANGED WITHIN CODE - ASSIGNED HERE TO BE GLOBAL
+###############################################################################
 #leader new position after check in cm:
 R1_gx_cm = R1_gy_cm =0
 #leader final position
@@ -36,8 +43,12 @@ x2=y2=a2=0
 x3=y3=a3=0
 #robot 4 current position:
 x4=y4=a4=0
-#incrementation values: (neede for the old calculations function)
+#incrementation values: (needed for the old calculations function)
 m=n=0
+
+###############################################################################
+# DECENTERALIZED FORMATION VARIABLES 2019
+###############################################################################
 #all_status initialization: (array to be published different from the recieved one)
 all_status=[0,0,0,0]
 #all robots positions : (array to be subscribed from the cam.)
@@ -49,8 +60,15 @@ next_goal=[[0,0],[0,0],[0,0],[0,0]]
 next_goal_list=[[0,0],[0,0],[0,0],[0,0]]
 align_axis=[[0,0],[0,0],[0,0],[0,0]]
 shape_corner_robots=[[0,0],[0,0],[0,0],[0,0]]
+
+# Robot Finish Flags Initialization
+leader_goal_flag = 0
+follower1_goal_flag = 0
+follower2_goal_flag = 0
+g2g_flag = 0
+
 ###############################################################################
-#RobotClass:
+# ROBOT CLASS - CONTAINS ROBOT RELATED PARAMETERS
 ###############################################################################
 class RobotClass:
     ID= -1
@@ -68,24 +86,34 @@ class RobotClass:
         return self.status
 
 ###############################################################################
-#define publishers:
+# PUBLISHERS DECLARATIONS
 ###############################################################################
+# robot goals in px - used for path planning
 pub_rob1_goal_px  = rospy.Publisher('robot1_goal_px', Int32MultiArray, queue_size=10)
 pub_rob2_goal_px = rospy.Publisher('robot2_goal_px', Int32MultiArray, queue_size=10)
 pub_rob3_goal_px = rospy.Publisher('robot3_goal_px', Int32MultiArray, queue_size=10)
 pub_rob4_goal_px = rospy.Publisher('robot4_goal_px', Int32MultiArray, queue_size=10)
 
+# robot goals in cm
 pub_rob1_goal_cm = rospy.Publisher('robot1_goal_cm',Int32MultiArray,queue_size=10)
 pub_rob2_goal_cm = rospy.Publisher('robot2_goal_cm', Int32MultiArray, queue_size=10)
 pub_rob3_goal_cm = rospy.Publisher('robot3_goal_cm', Int32MultiArray, queue_size=10)
 pub_rob4_goal_cm = rospy.Publisher('robot4_goal_cm', Int32MultiArray, queue_size=10)
 
+# publisher to update follower robot's status in robot_status global array
 pub_assign_follower_robots = rospy.Publisher('assign_follower_robots', Int32MultiArray, queue_size=10)
+
+# publisher to update the next_goals array of the global node
 pub_update_next_goals = rospy.Publisher('update_next_goals',Int32MultiArray,queue_size=10)
 
+# 2018 - OLD CALCULATION PUBLISHER
 pub_m_n_values = rospy.Publisher('m_n_values', Int32MultiArray, queue_size=10)
+
+# wait time because why not?
+time.sleep(5)
+
 ###############################################################################
-#callback functions:
+# CALLBACK FUNCTIONS FOR ROS SUBSCRIBERS
 ###############################################################################
 def callback_status (data):
     global R, all_status
@@ -180,48 +208,53 @@ def callback_leader_final_goal(data):
     R1_gy_cm = data.data[1]
 
 ###############################################################################
-#who_am_I function:
+# WHO AM I FUNCTION - IT RUNS ONCE WITHIN MAIN CODE
 ###############################################################################
 def who_am_I():
     ''' This function is run in the main loop to identify which robot and also
         his job as leader,follower1,or follower2 encrypted in status
     '''
     global R
-    R=RobotClass()
-    pub_corners_rob =rospy.Publisher('corners_rob'+str(R.ID), Int32MultiArray,queue_size=10)
+    R = RobotClass()
+    # creating publisher and subscriber for each robot based on it's id
+    # as this code will run on all 4 robots
+    pub_corners_rob = rospy.Publisher('corners_rob'+str(R.ID), Int32MultiArray,queue_size=10)
     rospy.Subscriber('robot_status', Int32MultiArray, callback_status)
+
     time.sleep(5)
+
     rospy.loginfo('Robot Class Created with ID {}'.format(R.ID))
     print "I am robot", R.ID , "with status:" , R.status
 
 ###############################################################################
-#define subscribers:
+# ROS SUBSCRIBERS
 ###############################################################################
 def listener():
-    #shape entring subscriptions:
-    rospy.Subscriber('formation_shape_name', String, callback_formation_shape)
-    #rospy.Subscriber('c2c_distance_px',Int32, callback_c2c_distance_px)
-    #camera_subscriptions:
+    # camera localization subscriptions
     rospy.Subscriber('rob1_CurrentPose', Int32MultiArray, callback_rob1_current_pos)
     rospy.Subscriber('rob2_CurrentPose', Int32MultiArray, callback_rob2_current_pos)
     rospy.Subscriber('rob3_CurrentPose', Int32MultiArray, callback_rob3_current_pos)
     rospy.Subscriber('rob4_CurrentPose', Int32MultiArray, callback_rob4_current_pos)
     rospy.Subscriber('robots_current_poses', Int32MultiArray, callback_robots_current_poses)
-    #go 2 goal subscritoins:
+
+    # go 2 goal subscriptions:
     rospy.Subscriber('rob1_final_cm', Int32MultiArray, callback_leader_final_goal)
     rospy.Subscriber('g2g_flag_rob'+str(R.ID), Int32, callback_g2g_flag_rob)
 
 def listener_from_global():
+    rospy.Subscriber('formation_shape_name', String, callback_formation_shape)
+    rospy.Subscriber('c2c_distance_px',Int32, callback_c2c_distance_px)
+    rospy.Subscriber('shape_sides',Int32,callback_shape_sides)
+    rospy.Subscriber('shape_length',Int32,callback_shape_length)
+    rospy.Subscriber('x_sides',Int32MultiArray,callback_x_sides)
+    rospy.Subscriber('y_sides',Int32MultiArray,callback_y_sides)
+
     rospy.Subscriber('align_axis',Int32MultiArray,callback_align_axis)
     rospy.Subscriber('shape_corner_robots',Int32MultiArray,callback_shape_corner_robots)
     rospy.Subscriber('next_goals',Int32MultiArray,callback_next_goal)
-    rospy.Subscriber('x_sides',Int32MultiArray,callback_x_sides)
-    rospy.Subscriber('y_sides',Int32MultiArray,callback_y_sides)
-    rospy.Subscriber('shape_sides',Int32,callback_shape_sides)
-    rospy.Subscriber('shape_length',Int32,callback_shape_length)
 
 ###############################################################################
-#justify_distance function:
+# JUSTIFY DISTANCE FUNCTION
 ###############################################################################
 def justify_distance(next,base,length):
     ''' (next) point is used as the follower point,
@@ -245,6 +278,7 @@ def justify_distance(next,base,length):
             justified_point[1]=base[1]+length
         else: #next is below
             justified_point[1]=base[1]-length
+
     #3. check that next and bas sharing the same y:
     elif next[1]==base[1]:
         justified_point[1]= base[1]
@@ -258,7 +292,7 @@ def justify_distance(next,base,length):
     return justified_point
 
 ###############################################################################
-#align function:
+# ALIGN FUNCTION
 ###############################################################################
 def align(follower,follower_num,leader,leader_num,direction):
     ''' this function determine the goal position for follower based on
@@ -378,10 +412,10 @@ def shape():
         print "shape is not defined"
 
     #publish the incrementation values of leader:
-    pub_m_n_values.publish(Int32MultiArray(data=numpy.array([m,n], Int32MultiArray)))
+    pub_m_n_values.publish( Int32MultiArray(data=[m,n]) )
 
 ###############################################################################
-#calculation function:
+# 2018 FORMATION CALCULATION FUNCTION
 ###############################################################################
 def calculations():
     ''' This function is to calculate the the follower1 and follower2 goal
@@ -463,7 +497,7 @@ def calculations():
     pub_rob3_goal_cm.publish(f13_CM)
 
 ###############################################################################
-#final function:
+# 2019 FORMATION FUNCTIONS
 ###############################################################################
 def leader_flag_callback(data):
     global leader_goal_flag
@@ -485,26 +519,34 @@ def final():
         new goals and publish them.
     '''
     global next_goal, align_axis,shape_corner_robots,poses
-    rospy.loginfo('Entered the final() function')
+    #rospy.loginfo('Entered the final() function')
+
     if ( shapes != '' ):
         if (R.status==1): #leader
-            rospy.loginfo('Robot {} started execution of leader procedure'.format(R.ID))
             global x1 ,y1,rob1_goal_x ,rob1_goal_y,rob1_goal_x_px ,rob1_goal_y_px, leader_calc_flag
+            rospy.loginfo('Robot {} started the main leader function'.format(R.ID))
+
+            # creating a leader flag publisher to raise the flag after leader has finished it's procedure
             leaderGoalFlag = rospy.Publisher('leader_reached_flag', Byte, queue_size=10)
+
             if not leader_calc_flag:
-                rospy.loginfo('Entered the first calculation condition')
+                rospy.loginfo('Doing leader-based calculations ... 1st RUN')
+
                 #if leader has a new position set the position to be added
                 #into the calculations as the new position
                 if ((R1_gx_cm > 0) and (R1_gy_cm > 0)):
-                    rospy.loginfo('Leader needs motion. Will make calculations')
+                    rospy.loginfo('Leader needs to move. Will make calculations')
                     rob1_goal_x = R1_gx_cm
                     rob1_goal_y = R1_gy_cm
+
                     next_goal_list = next_goal #old next_goal list of lists that we subscribed
                     next_goal_list=numpy.reshape(next_goal,(8))
                     next_goal_list[(R.ID-1)]= rob1_goal_x
                     next_goal_list[(R.ID)]= rob1_goal_y
+
                     pub_update_next_goals.publish(Int32MultiArray(data= next_goal_list ))
                     time.sleep(5)
+
                     shape_corner_robots[0]=[rob1_goal_x,rob1_goal_y]
                     nearest_two_neighbors=find_nearest_two_neighbors(R.ID-1)
                     followers_routine_step1(R.ID-1,nearest_two_neighbors[0],nearest_two_neighbors[1])
@@ -514,15 +556,18 @@ def final():
 
                 else:
                     rospy.loginfo('Leader does not need to move. Calculating for followers')
+
                     #if leader is not supposed to move set the positions to be added
                     #into the calculations as current position of the leader
                     rob1_goal_x = poses[R.ID-1][0]
                     rob1_goal_y = poses[R.ID-1][1]
+
                     next_goal_list = next_goal
-                    next_goal_list=numpy.reshape(next_goal,(8))
-                    next_goal_list[(R.ID-1)]= rob1_goal_x
-                    next_goal_list[(R.ID)]= rob1_goal_y
-                    pub_update_next_goals.publish(Int32MultiArray(data= next_goal_list ))
+                    next_goal_list = numpy.reshape(next_goal,(8))
+                    next_goal_list[(R.ID-1)] = rob1_goal_x
+                    next_goal_list[(R.ID)] = rob1_goal_y
+
+                    pub_update_next_goals.publish( Int32MultiArray(data=next_goal_list) )
                     time.sleep(5)
 
                     shape_corner_robots[0]=[rob1_goal_x,rob1_goal_y]
@@ -535,36 +580,61 @@ def final():
                 time.sleep(1)
 
         elif (R.status == 2):#follower1
+            rospy.loginfo('Robot {} status is FOLLOWER 1'.format(R.ID))
+
+            # subscribe to the leader finish flag
             rospy.Subscriber('leader_reached_flag', Byte, leader_flag_callback)
+
+            # create a publisher for follower 1 finish flag
             follower1GoalFlag = rospy.Publisher('follower1_reached_flag', Byte, queue_size=10)
+
+            # poll the flag until it's raised
             while not leader_goal_flag :
-                print "waiting for leader"
+                rospy.loginfo('Robot {} is waiting for leader to raise the finish flag'.format(R.ID))
                 time.sleep (5)
+            
             global x2 ,y2,rob2_goal_x ,rob2_goal_y,rob2_goal_x_px ,rob2_goal_y_px
             nearest_not_aligned_neighbor = find_nearest_not_aligned_neighbor(R.ID-1)
-            follower_routine_step2(R.ID-1,nearest_not_aligned_neighbor)
+            followers_routine_step2(R.ID-1,nearest_not_aligned_neighbor)
+
             move(R.ID)
             follower1GoalFlag.publish(1)
             time.sleep(1)
 
         elif (R.status == 3):#follower2
+            rospy.loginfo('Robot {} status is FOLLOWER 2'.format(R.ID))
+
+            # subscribe to the follower 1 finish flag
             rospy.Subscriber('follower1_reached_flag', Byte, follower1_flag_callback)
+
+            # create a publisher for follower 2 finish flag
             follower2GoalFlag = rospy.Publisher('follower2_reached_flag', Byte, queue_size=10)
+
+            # poll the flag until it's raised
             while not follower1_goal_flag :
-                print "waiting for follower1"
+                rospy.loginfo('Robot {} is waiting for follower 1 to raise the finish flag'.format(R.ID))
                 time.sleep (10)
+
             global x3 ,y3,rob3_goal_x_px ,rob3_goal_y_px
             nearest_not_aligned_neighbor = find_nearest_not_aligned_neighbor(R.ID-1)
-            follower_routine_step2(R.ID-1,nearest_not_aligned_neighbor)
+            followers_routine_step2(R.ID-1,nearest_not_aligned_neighbor)
+
             move(R.ID)
             follower2GoalFlag.publish(1)
             time.sleep(1)
 
         elif (R.status==4):
+            rospy.loginfo('Robot {} status is FOLLOWER 3'.format(R.ID))
+
+            # subscribe to the follower 2 finish flag
             rospy.Subscriber('follower2_reached_flag', Byte, follower2_flag_callback)
+
+            # create a publisher for follower 3 finish flag
             follower3GoalFlag = rospy.Publisher('follower3_reached_flag', Byte, queue_size=10)
+
+            # poll the flag until it's raised
             while not follower2_goal_flag :
-                print "waiting for follower2"
+                rospy.loginfo('Robot {} is waiting for follower 2 to raise the finish flag'.format(R.ID))
                 time.sleep (10)
 
             move(R.ID)
@@ -572,16 +642,17 @@ def final():
             time.sleep(1)
 
     else:
-        print 'waiting required_shape'
+        rospy.logwarn('No shape is defined.')
 
 ###############################################################################
-#followers_routine_step1 function:
+# FOLLOWER 1 CALCULATIONS ROUTINE
 ###############################################################################
 def followers_routine_step1(leader_id,f1_id,f2_id):
     ''' this function do the routine for each follower from leader prespective
     '''
     global shape_sides, next_goal,next_goal_list,poses
-    rospy.loginfo('Started calculations for follower 1 routine')
+    rospy.loginfo('Started calculations for follower 1 .... FOLLOWER 1 ROUTINE')
+
     leader_follower1_x = poses[leader_id][0] - poses[f1_id][0]
     leader_follower1_y = poses[leader_id][1] - poses[f1_id][1]
     leader_follower2_x = poses[leader_id][0] - poses[f2_id][0]
@@ -602,19 +673,25 @@ def followers_routine_step1(leader_id,f1_id,f2_id):
     shape_corner_robots[f2_id]=next_goal[f2_id]
 
 ###############################################################################
-#followers_routine_step2 function:
+# FOLLOWER 2 CALCULATIONS ROUTINE
 ###############################################################################
 def followers_routine_step2(follower_id,neighbor_id):
     ''' this function do the routine for each follower from follower itself
         to its neighbor
     '''
+    global shape_sides
+    rospy.loginfo('Started calculations for follower 2 .... FOLLOWER 2 ROUTINE')
+
     follower_neighbor_x = poses[follower_id][0] - poses[neighbor_id][0]
     follower_neighbor_y = poses[follower_id][1] - poses[neighbor_id][1]
+
     #procedure:
     if ((follower_neighbor_x < follower_neighbor_y) or align_axis[follower_id][0]==0):
-        align(poses[neighbor_id], neighbor_id ,poses[follower_id],leader_id ,'x' )
-    elif((follower_neighbor_x > follower_neighbor_y) or align_axis[leader_id][1]==1):
-        align(poses[neighbor_id], neighbor_id ,poses[follower_id],leader_id ,'y' )
+        align(poses[neighbor_id], neighbor_id ,poses[follower_id],follower_id ,'x' )
+
+    elif((follower_neighbor_x > follower_neighbor_y) or align_axis[follower_id][1]==1):
+        align(poses[neighbor_id], neighbor_id ,poses[follower_id],follower_id ,'y' )
+
     shape_sides -= 1
     shape_corner_robots[neighbor_id] = next_goal[neighbor_id]
 
@@ -629,25 +706,31 @@ def find_nearest_two_neighbors(id):
         are the other three robots ids and so on
     '''
     global poses, all_status
-    rospy.loginfo('Started calculating nearest two neighbours')
+    rospy.loginfo('Started calculating nearest two neighbours for Robot {}'.format(id+1))
+
     dist1 = calculate_distance(poses[id],poses[(id+1)%4])
     dist2 = calculate_distance(poses[id],poses[(id+2)%4])
     dist3 = calculate_distance(poses[id],poses[(id+3)%4])
     distances ={str((id+1)%4):dist1,  str((id+2)%4):dist2,  str((id+3)%4):dist3}
+
     # sort the dictionary by values:
     sorted_distances = sorted(distances.iteritems(), key = lambda x : x[1])
+
     # make a list of the first 2 keys as integers to be returned:
     nearest_two_neighbors_list= [int(sorted_distances[0][0]),int(sorted_distances[1][0])]
+
     rospy.loginfo('Nearest two neighbours are {} , {}'.format(nearest_two_neighbors_list[0]+1, nearest_two_neighbors_list[1]+1))
+
     update_all_status = []
     update_all_status = all_status
     update_all_status[nearest_two_neighbors_list[0]] = 2
     update_all_status[nearest_two_neighbors_list[1]] = 3
     pub_assign_follower_robots.publish( Int32MultiArray(data=update_all_status))
+
     return nearest_two_neighbors_list
 
 ###############################################################################
-#find_nearest_not_aligned_neighbor function:
+# FINDING NEAREST NEIGHBOURS THAT ARE NOT ALIGNED
 ###############################################################################
 def find_nearest_not_aligned_neighbor(id):
     ''' this function return the id of the not not_aligned_neighbors to the
@@ -657,59 +740,80 @@ def find_nearest_not_aligned_neighbor(id):
     reminder so if the id  given is 2 >> the results will become 3,0,1 which
     are the other three robots ids and so on
     '''
+    global robot_nearest_not_aligned_neighbor_id
+    rospy.loginfo('Started calculating nearest two unaligned neighbours for Robot {}'.format(id+1))
+
     dist1 = calculate_distance(poses[id],poses[(id+1)%4])
     dist2 = calculate_distance(poses[id],poses[(id+2)%4])
     dist3 = calculate_distance(poses[id],poses[(id+3)%4])
     distances ={str((id+1)%4):dist1,  str((id+2)%4):dist2,  str((id+3)%4):dist3}
+
     # sort the dictionary by values:
     sorted_distances = sorted(distances.iteritems(), key = lambda x : x[1])
+
     # make a list of the first 1 keys as integers to be returned:
     key1 = int(sorted_distances[0][0])
     key2 = int(sorted_distances[1][0])
     key3 = int(sorted_distances[2][0])
-    nearest_not_aligned_neighbor=key1
+
+    robot_nearest_not_aligned_neighbor_id = key1
+
     for k in [key1,key2,key3]:
         if(align_axis[k][0]!=1 and align_axis[k][1]!=1):
             #then it is not aligned
-            robotnearest_not_aligned_neighbor = k
+            robot_nearest_not_aligned_neighbor_id = k
+            
     update_all_status = []
     update_all_status = all_status
-    update_all_status[nearest_two_neighbors_list[0]] = 4 #follower3
+    update_all_status[robot_nearest_not_aligned_neighbor_id] = 4 #follower3
+
     pub_assign_follower_robots.publish( Int32MultiArray(data=update_all_status) )
 
-    return nearest_not_aligned_neighbor
+    return robot_nearest_not_aligned_neighbor_id
 
 ###############################################################################
-#calculate_distance function:
+# CALCULATING EUCLEDIAN DISTANCE
 ###############################################################################
 def calculate_distance(p1,p2):
-    p1x=p1[0]
-    p1y=p1[1]
-    p2x=p2[0]
-    p2y=p2[1]
+    """
+    Function returns eucledian distance between two points
+    """
     dist= math.sqrt(pow((p2[0]-p1[0]),2)+pow((p2[1]-p1[1]),2))
     return dist
 
 ###############################################################################
-#move function:
+# SIGNALING ROBOT MOVE FUNCTION
 ###############################################################################
 def move(id):
-    ''' rise flag with the id of the robot to be moved
     '''
-    pub_robot_id=Publisher('robot_to_be_moved',Int32,queue_size=10)
+    Raise a flag with the id of the robot to be moved - used for path planning
+    '''
+    global g2g_flag
+    pub_robot_id= rospy.Publisher('robot_to_be_moved',Int32,queue_size=10)
     pub_robot_id.publish(id)
+
     while g2g_flag !=1:
         print "do nothing and wait the g2g_flag"
         rospy.sleep(150)
+
+def check_positions():
+    """
+    Checks if robot positions are being sent
+    """
+    return (x1 and y1) or (x2 and y2) or (x3 and y3) or (x4 and y4)
 
 ###############################################################################
 #Main:
 ###############################################################################
 if __name__== '__main__':
-    rospy.init_node('formation_node')
+    rospy.init_node('formation_node_rob1')
+
     while not rospy.is_shutdown():
         who_am_I()
         listener_from_global()
         listener()
+        check = check_positions()
+        if not check:
+            rospy.logwarn('Robot Positions are missing')
         #	rate.sleep()
         rospy.spin()
