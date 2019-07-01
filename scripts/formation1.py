@@ -9,7 +9,7 @@ import time
 # 2018 FORMATION VARIABLES
 ###############################################################################
 #desired orientation difference:
-Ad2 =Ad3 = 0
+Ad2 =Ad3 =Ad4= 0
 #desired distance of the formation shape
 Dd=0
 #orientation in radians:
@@ -220,8 +220,8 @@ def who_am_I():
     # creating publisher and subscriber for each robot based on it's id
     # as this code will run on all 4 robots
     pub_corners_rob = rospy.Publisher('corners_rob'+str(R.ID), Int32MultiArray,queue_size=10)
-   
-    rospy.loginfo('Robot [%d] class created. Waiting some time to ensure connections to robot_status are established'%(R.ID)) 
+
+    rospy.loginfo('Robot [%d] class created. Waiting some time to ensure connections to robot_status are established'%(R.ID))
     # some wait time to ensure subscriber has actually made a connection
     time.sleep(system_latency)
 
@@ -250,7 +250,7 @@ def listeners():
     rospy.Subscriber('robots_current_poses', Int32MultiArray, callback_robots_current_poses)
 
     # GO TO GOAL FLAGS SUBSCRIPTIONS
-    rospy.Subscriber('rob1_final_cm', Int32MultiArray, callback_leader_final_goal)
+    rospy.Subscriber('leader_final_goal', Int32MultiArray, callback_leader_final_goal)
     rospy.Subscriber('gtg_flag_rob'+str(R.ID), Int32, callback_g2g_flag_rob)
 
     # robot status subscriber
@@ -567,7 +567,7 @@ def final():
                     next_goal_list[(R.ID)] = rob1_goal_y
 
                     pub_update_next_goals.publish( Int32MultiArray(data=next_goal_list) )
-                    
+
 
                     shape_corner_robots[0]=[rob1_goal_x,rob1_goal_y]
                     nearest_two_neighbors=find_nearest_two_neighbors(R.ID-1)
@@ -575,7 +575,7 @@ def final():
 
                     leader_calc_flag = True
                     leader_finish_flag = 1
-                    
+
                 leaderGoalFlag.publish(leader_finish_flag)
                 final_finish_flag = 1
                 print "Everything was done. Spinning"
@@ -593,7 +593,7 @@ def final():
             rospy.loginfo('Robot {} is waiting for leader to raise the finish flag'.format(R.ID))
             while not leader_goal_flag :
                 pass
-            
+
             global x2 ,y2,rob2_goal_x ,rob2_goal_y,rob2_goal_x_px ,rob2_goal_y_px
             nearest_not_aligned_neighbor = find_nearest_not_aligned_neighbor(R.ID-1)
             followers_routine_step2(R.ID-1,nearest_not_aligned_neighbor)
@@ -613,8 +613,9 @@ def final():
             follower2GoalFlag = rospy.Publisher('follower2_reached_flag', Byte, latch = True ,queue_size=10)
 
             # poll the flag until it's raised
+            rospy.loginfo('Robot {} is waiting for follower 1 to raise the finish flag'.format(R.ID))
             while not follower1_goal_flag :
-                rospy.loginfo('Robot {} is waiting for follower 1 to raise the finish flag'.format(R.ID))
+                pass
 
             global x3 ,y3,rob3_goal_x_px ,rob3_goal_y_px
             nearest_not_aligned_neighbor = find_nearest_not_aligned_neighbor(R.ID-1)
@@ -684,8 +685,8 @@ def followers_routine_step2(follower_id,neighbor_id):
     if (neighbor_id != 55):
         rospy.loginfo('Started FOLLOWER 2 ROUTINE')
 
-        follower_neighbor_x = poses[follower_id][0] - poses[neighbor_id][0]
-        follower_neighbor_y = poses[follower_id][1] - poses[neighbor_id][1]
+        follower_neighbor_x = next_goal[follower_id][0] - poses[neighbor_id][0]
+        follower_neighbor_y = next_goal[follower_id][1] - poses[neighbor_id][1]
 
         #procedure:
         if ((follower_neighbor_x < follower_neighbor_y) or align_axis[follower_id][0]==0):
@@ -768,7 +769,7 @@ def find_nearest_not_aligned_neighbor(id):
             robot_nearest_not_aligned_neighbor_id = k
 
     rospy.loginfo('Nearest Unaligned Neighbour to Robot [%d] is Robot [%d]' %(id+1,robot_nearest_not_aligned_neighbor_id+1))
-    try:      
+    try:
         update_all_status = []
         update_all_status = all_status
         update_all_status[robot_nearest_not_aligned_neighbor_id] = 4 #follower3
@@ -831,6 +832,6 @@ if __name__== '__main__':
     check = check_positions()
     if not check:
         rospy.logwarn('Robot Positions are missing')
-    
+
     while not rospy.is_shutdown():
         rospy.spin()
