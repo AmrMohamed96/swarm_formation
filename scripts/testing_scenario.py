@@ -35,6 +35,8 @@ def test_scenario_talker():
     rob4 = rospy.Publisher('rob4_CurrentPose', Int32MultiArray, queue_size=10)
     all = rospy.Publisher('robots_current_poses', Int32MultiArray, queue_size=10)
 
+    Rate = rospy.Rate(10)
+
     while not rospy.is_shutdown():
         # publishing robot positions
         rob1.publish( Int32MultiArray(data=rob1_pos) )
@@ -43,8 +45,7 @@ def test_scenario_talker():
         rob4.publish( Int32MultiArray(data=rob4_pos) )
         all.publish( Int32MultiArray(data=all_robots_pos) )
 
-        #adding 0.5 second delay to simulate camera delay
-        #sleep(0.5)
+        Rate.sleep()
 
 if __name__ == '__main__':
     try:

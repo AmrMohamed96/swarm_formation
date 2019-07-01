@@ -28,6 +28,8 @@ current_shape_length = -1
 current_leader_pos = [-1,-1,-1]
 possibile_flag = 1
 
+system_latency = 5
+
 ###############################################################################
 # Robot Position Subscriber Functions
 ###############################################################################
@@ -159,7 +161,7 @@ def set_and_check_leader():
 
     # set the leader
     setLead = rospy.Publisher('set_new_leader', Byte, queue_size=1)
-    time.sleep(5)
+    time.sleep(system_latency)
     setLead.publish(desired_leader+1)
     rospy.loginfo('Leader will be Robot {} as it sees {} robots'.format(desired_leader + 1, inrange_count[desired_leader]))
 
@@ -264,14 +266,15 @@ if __name__ == '__main__':
 
         # stay in a loop publishing until another run is issues via the subscriber
         # function will sleep 1 minute to save CPU power
+
+        Rate = rospy.Rate(0.5)
+
         try:
             while not rospy.is_shutdown():
                 rangePub.publish( Int32MultiArray(data=inrange_count) )
                 possibleFormation.publish( possibile_flag )
                 rangePub.publish( Int32MultiArray(data=inrange_count))
-                #Sleeps for 1 Minute - Used to reduce CPU usage
-                rospy.loginfo('Sleeping for a minute to save power')
-                rospy.sleep(60)
+                Rate.sleep()
 
         except KeyboardInterrupt:
             rospy.loginfo('Keyboard Interrupt Exception')

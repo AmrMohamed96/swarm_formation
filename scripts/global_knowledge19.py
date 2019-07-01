@@ -42,6 +42,9 @@ next_goals = [ [0,0], [0,0], [0,0], [0,0] ]
 
 grid_size = 17.5
 
+# converted next goals
+next_goals_px = [ [0,0], [0,0], [0,0], [0,0] ]
+
 ###############################################################################
 # Callbacks that take align axis from each robot and update the global align axis
 ###############################################################################
@@ -185,9 +188,27 @@ def set_pattern_param_callback(data):
     y_sides = y_sides.append( [ data.data[8], data.data[9] ])
 
 ###############################################################################
-# Subscribers of the global node
+# Main code of the global node
 ###############################################################################
-def global_node_listener():
+def global_talker():
+    global leader_history
+    # Defining Publishers
+    alignPub = rospy.Publisher('align_axis', Int32MultiArray, queue_size=10)
+    shapeCorners = rospy.Publisher('shape_corner_robots', Int32MultiArray, queue_size=10)
+
+    shapeLength = rospy.Publisher('shape_length', Int32, queue_size=10)
+    shapeSides = rospy.Publisher('shape_sides', Int32, queue_size=10)
+    xSides = rospy.Publisher('x_sides', Int32MultiArray, queue_size=10)
+    ySides = rospy.Publisher('y_sides', Int32MultiArray, queue_size=10)
+    shapeName = rospy.Publisher('formation_shape_name', String, queue_size=10)
+
+    robotStats = rospy.Publisher('robot_status', Int32MultiArray, queue_size=10)
+    leaderHistory = rospy.Publisher('leader_history', Int32MultiArray, queue_size=10)
+    nextGoals = rospy.Publisher('next_goals', Int32MultiArray, queue_size=10)
+
+    nextGoalsPx = rospy.Publisher('next_goals_px', Int32MultiArray, queue_size=10)
+
+    # Starting the subscribers
     # subscribers that update align axis list of each robot independently
     rospy.Subscriber('align_axis_rob1', Int32MultiArray, edit_align_rob1_callback)
     rospy.Subscriber('align_axis_rob2', Int32MultiArray, edit_align_rob2_callback)
@@ -217,27 +238,8 @@ def global_node_listener():
     rospy.Subscriber('c2c_distance_px', String, req_c2c_callback)
     rospy.Subscriber('robots_num', String, robots_num_callback)
 
-###############################################################################
-# Main code of the global node
-###############################################################################
-def global_talker():
-    global leader_history
-    # Defining Publishers
-    alignPub = rospy.Publisher('align_axis', Int32MultiArray, queue_size=10)
-    shapeCorners = rospy.Publisher('shape_corner_robots', Int32MultiArray, queue_size=10)
-
-    shapeLength = rospy.Publisher('shape_length', Int32, queue_size=10)
-    shapeSides = rospy.Publisher('shape_sides', Int32, queue_size=10)
-    xSides = rospy.Publisher('x_sides', Int32MultiArray, queue_size=10)
-    ySides = rospy.Publisher('y_sides', Int32MultiArray, queue_size=10)
-    shapeName = rospy.Publisher('formation_shape_name', String, queue_size=10)
-
-    robotStats = rospy.Publisher('robot_status', Int32MultiArray, queue_size=10)
-    leaderHistory = rospy.Publisher('leader_history', Int32MultiArray, queue_size=10)
-    nextGoals = rospy.Publisher('next_goals', Int32MultiArray, queue_size=10)
-
-    # Starting the subscribers
-    global_node_listener()
+    # defining the publishing rate
+    Rate = rospy.Rate(10)
 
     try:
         while not rospy.is_shutdown():
@@ -253,6 +255,15 @@ def global_talker():
             robotStats.publish( Int32MultiArray(data=robot_status) )
             leaderHistory.publish( Int32MultiArray(data=leader_history) )
             nextGoals.publish( Int32MultiArray( data= np.reshape(next_goals, (8)) ) )
+
+            # Converting Next Goals into Px
+            for i in range ( len(next_goals_px) ):
+                next_goals_px[i][0] = int(next_goals[i][0] // grid_size)
+                next_goals_px[i][1] = int(next_goals[i][1] // grid_size)
+
+            nextGoalsPx.publish( Int32MultiArray(data = np.reshape(next_goals_px, (8)) ))
+
+            Rate.sleep()
 
     except KeyboardInterrupt:
         rospy.loginfo("Node was forced to close")
