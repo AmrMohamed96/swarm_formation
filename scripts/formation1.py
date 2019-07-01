@@ -534,13 +534,11 @@ def final():
                 if ((R1_gx_cm > 0) and (R1_gy_cm > 0)):
                     rospy.loginfo('Leader needs to move. Will make calculations')
                     time.sleep(system_latency)
-                    rob1_goal_x = R1_gx_cm
-                    rob1_goal_y = R1_gy_cm
 
                     next_goal_list = next_goal #old next_goal list of lists that we subscribed
                     next_goal_list=numpy.reshape(next_goal,(8))
-                    next_goal_list[(R.ID-1)]= rob1_goal_x
-                    next_goal_list[(R.ID)]= rob1_goal_y
+                    next_goal_list[(R.ID-1)]= R1_gx_cm
+                    next_goal_list[(R.ID)]= R1_gy_cm
 
                     pub_update_next_goals.publish(Int32MultiArray(data= next_goal_list ))
 
@@ -558,13 +556,11 @@ def final():
 
                     #if leader is not supposed to move set the positions to be added
                     #into the calculations as current position of the leader
-                    rob1_goal_x = poses[R.ID-1][0]
-                    rob1_goal_y = poses[R.ID-1][1]
 
                     next_goal_list = next_goal
                     next_goal_list = numpy.reshape(next_goal,(8))
-                    next_goal_list[(R.ID-1)] = rob1_goal_x
-                    next_goal_list[(R.ID)] = rob1_goal_y
+                    next_goal_list[(R.ID-1)] = poses[R.ID-1][0]
+                    next_goal_list[(R.ID)] = poses[R.ID-1][1]
 
                     pub_update_next_goals.publish( Int32MultiArray(data=next_goal_list) )
 
