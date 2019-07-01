@@ -250,7 +250,7 @@ def listeners():
     rospy.Subscriber('robots_current_poses', Int32MultiArray, callback_robots_current_poses)
 
     # GO TO GOAL FLAGS SUBSCRIPTIONS
-    rospy.Subscriber('rob1_final_cm', Int32MultiArray, callback_leader_final_goal)
+    rospy.Subscriber('leader_final_goal', Int32MultiArray, callback_leader_final_goal)
     rospy.Subscriber('gtg_flag_rob'+str(R.ID), Int32, callback_g2g_flag_rob)
 
     # robot status subscriber
