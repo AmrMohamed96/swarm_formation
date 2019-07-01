@@ -685,8 +685,8 @@ def followers_routine_step2(follower_id,neighbor_id):
     if (neighbor_id != 55):
         rospy.loginfo('Started FOLLOWER 2 ROUTINE')
 
-        follower_neighbor_x = poses[follower_id][0] - poses[neighbor_id][0]
-        follower_neighbor_y = poses[follower_id][1] - poses[neighbor_id][1]
+        follower_neighbor_x = next_goal[follower_id][0] - poses[neighbor_id][0]
+        follower_neighbor_y = next_goal[follower_id][1] - poses[neighbor_id][1]
 
         #procedure:
         if ((follower_neighbor_x < follower_neighbor_y) or align_axis[follower_id][0]==0):

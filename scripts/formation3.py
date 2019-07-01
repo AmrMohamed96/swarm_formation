@@ -250,7 +250,7 @@ def listeners():
     rospy.Subscriber('robots_current_poses', Int32MultiArray, callback_robots_current_poses)
 
     # GO TO GOAL FLAGS SUBSCRIPTIONS
-    rospy.Subscriber('rob1_final_cm', Int32MultiArray, callback_leader_final_goal)
+    rospy.Subscriber('leader_final_goal', Int32MultiArray, callback_leader_final_goal)
     rospy.Subscriber('gtg_flag_rob'+str(R.ID), Int32, callback_g2g_flag_rob)
 
     # robot status subscriber
@@ -685,8 +685,8 @@ def followers_routine_step2(follower_id,neighbor_id):
     if (neighbor_id != 55):
         rospy.loginfo('Started FOLLOWER 2 ROUTINE')
 
-        follower_neighbor_x = poses[follower_id][0] - poses[neighbor_id][0]
-        follower_neighbor_y = poses[follower_id][1] - poses[neighbor_id][1]
+        follower_neighbor_x = next_goal[follower_id][0] - poses[neighbor_id][0]
+        follower_neighbor_y = next_goal[follower_id][1] - poses[neighbor_id][1]
 
         #procedure:
         if ((follower_neighbor_x < follower_neighbor_y) or align_axis[follower_id][0]==0):
