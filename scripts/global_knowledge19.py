@@ -258,8 +258,8 @@ def global_talker():
 
             # Converting Next Goals into Px
             for i in range ( len(next_goals_px) ):
-                next_goals_px[i][0] = int(next_goals[i][0] // grid_size)
-                next_goals_px[i][1] = int(next_goals[i][1] // grid_size)
+                next_goals_px[i][0] = round((next_goals[i][0] / grid_size))
+                next_goals_px[i][1] = round((next_goals[i][1] / grid_size))
 
             nextGoalsPx.publish( Int32MultiArray(data = np.reshape(next_goals_px, (8)) ))
 
