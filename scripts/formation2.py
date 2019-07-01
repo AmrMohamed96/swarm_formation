@@ -590,8 +590,9 @@ def final():
             follower1GoalFlag = rospy.Publisher('follower1_reached_flag', Byte, latch=True, queue_size=10)
 
             # poll the flag until it's raised
+            rospy.loginfo('Robot {} is waiting for leader to raise the finish flag'.format(R.ID))
             while not leader_goal_flag :
-                rospy.loginfo('Robot {} is waiting for leader to raise the finish flag'.format(R.ID))
+                pass
             
             global x2 ,y2,rob2_goal_x ,rob2_goal_y,rob2_goal_x_px ,rob2_goal_y_px
             nearest_not_aligned_neighbor = find_nearest_not_aligned_neighbor(R.ID-1)
@@ -634,8 +635,9 @@ def final():
             follower3GoalFlag = rospy.Publisher('follower3_reached_flag', Byte, latch=True, queue_size=10)
 
             # poll the flag until it's raised
+            rospy.loginfo('Robot [%d] is waiting for follower 2 to raise the finish flag'% (R.ID))
             while not follower2_goal_flag :
-                rospy.loginfo('Robot [%d] is waiting for follower 2 to raise the finish flag'% (R.ID))
+                pass
 
             move(R.ID)
             follower3GoalFlag.publish(1)
