@@ -111,7 +111,7 @@ pub_update_next_goals = rospy.Publisher('update_next_goals',Int32MultiArray, lat
 pub_m_n_values = rospy.Publisher('m_n_values', Int32MultiArray, latch=True, queue_size=10)
 
 # path planning Robot To Move Flag publisher
-pub_robot_id= rospy.Publisher('robot_to_be_moved',Int32, latch=True, queue_size=10)
+pub_robot_id= rospy.Publisher('robot_to_be_moved',Int32, queue_size=10)
 
 ###############################################################################
 # CALLBACK FUNCTIONS FOR ROS SUBSCRIBERS
@@ -537,8 +537,9 @@ def final():
 
                     next_goal_list = next_goal #old next_goal list of lists that we subscribed
                     next_goal_list=numpy.reshape(next_goal,(8))
-                    next_goal_list[(R.ID-1)]= R1_gx_cm
-                    next_goal_list[(R.ID)]= R1_gy_cm
+                    my_index = (R.ID - 1) + 2
+                    next_goal_list[my_index]= R1_gx_cm
+                    next_goal_list[my_index + 1]= R1_gy_cm
 
                     pub_update_next_goals.publish(Int32MultiArray(data= next_goal_list ))
 
@@ -559,8 +560,9 @@ def final():
 
                     next_goal_list = next_goal
                     next_goal_list = numpy.reshape(next_goal,(8))
-                    next_goal_list[(R.ID-1)] = poses[R.ID-1][0]
-                    next_goal_list[(R.ID)] = poses[R.ID-1][1]
+                    my_index = (R.ID - 1) + 2
+                    next_goal_list[my_index] = poses[R.ID-1][0]
+                    next_goal_list[my_index + 1] = poses[R.ID-1][1]
 
                     pub_update_next_goals.publish( Int32MultiArray(data=next_goal_list) )
 
@@ -592,7 +594,15 @@ def final():
 
             global x2 ,y2,rob2_goal_x ,rob2_goal_y,rob2_goal_x_px ,rob2_goal_y_px
             nearest_not_aligned_neighbor = find_nearest_not_aligned_neighbor(R.ID-1)
-            followers_routine_step2(R.ID-1,nearest_not_aligned_neighbor)
+            
+            next_follower_id = -1
+
+            # get the index of follower 2
+            for i in range( len(all_status) ):
+                if all_status[i] == 3:
+                    next_follower_id = i
+
+            followers_routine_step2(R.ID-1,nearest_not_aligned_neighbor, next_follower_id)
 
             move(R.ID)
             follower1GoalFlag.publish(1)
@@ -615,7 +625,13 @@ def final():
 
             global x3 ,y3,rob3_goal_x_px ,rob3_goal_y_px
             nearest_not_aligned_neighbor = find_nearest_not_aligned_neighbor(R.ID-1)
-            followers_routine_step2(R.ID-1,nearest_not_aligned_neighbor)
+            next_follower_id = -1
+            # get the index of follower 2
+            for i in range( len(all_status) ):
+                if all_status[i] == 3:
+                    next_follower_id = i
+
+            followers_routine_step2(R.ID-1,nearest_not_aligned_neighbor,next_follower_id)
 
             move(R.ID)
             follower2GoalFlag.publish(1)
@@ -651,45 +667,69 @@ def followers_routine_step1(leader_id,f1_id,f2_id):
     global shape_sides, next_goal,next_goal_list,poses
     rospy.loginfo('Started FOLLOWER 1 ROUTINE')
 
-    leader_follower1_x = poses[leader_id][0] - poses[f1_id][0]
-    leader_follower1_y = poses[leader_id][1] - poses[f1_id][1]
-    leader_follower2_x = poses[leader_id][0] - poses[f2_id][0]
-    leader_follower2_y = poses[leader_id][1] - poses[f2_id][1]
+    leader_follower1_x = abs( poses[leader_id][0] - poses[f1_id][0] )
+    leader_follower1_y = abs( poses[leader_id][1] - poses[f1_id][1] )
+    leader_follower2_x = abs( poses[leader_id][0] - poses[f2_id][0] )
+    leader_follower2_y = abs( poses[leader_id][1] - poses[f2_id][1] )
+
     #follower1 procedure:
-    if ((leader_follower1_x < leader_follower1_y) or align_axis[leader_id][0]==0):
-        align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'x' )
-    elif ((leader_follower1_x > leader_follower1_y) or align_axis[leader_id][1]==1):
+    if ((leader_follower1_x < leader_follower1_y) and align_axis[leader_id][1]==0):
         align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'y' )
+    elif ((leader_follower1_x > leader_follower1_y) and align_axis[leader_id][0]==0):
+        align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'x' )
+    elif align_axis[leader_id][0]==0:
+        align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'x' )
+    elif align_axis[leader_id][1]==0:
+        align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'y' )
+
     shape_sides -= 1
     shape_corner_robots[f1_id]=next_goal[f1_id]
     #follower2 procedure:
-    if ((leader_follower2_x < leader_follower2_y) or align_axis[leader_id][0]==0):
-        align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'x' )
-    elif ((leader_follower2_x > leader_follower2_y) or align_axis[leader_id][1]==1):
+    if ((leader_follower2_x < leader_follower2_y) and align_axis[leader_id][1]==0):
         align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'y' )
+    elif ((leader_follower2_x > leader_follower2_y) and align_axis[leader_id][0]==0):
+        align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'x' )
+    elif align_axis[leader_id][0]==0:
+        align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'x' )
+    elif align_axis[leader_id][1]==0:
+        align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'y' )
+
     shape_sides -= 1
     shape_corner_robots[f2_id]=next_goal[f2_id]
 
 ###############################################################################
 # FOLLOWER 2 CALCULATIONS ROUTINE
 ###############################################################################
-def followers_routine_step2(follower_id,neighbor_id):
+def followers_routine_step2(follower_id,neighbor_id,next_follower_id):
     ''' this function do the routine for each follower from follower itself
         to its neighbor
     '''
     global shape_sides
+    if next_follower_id == follower_id:
+        pass
+    else:
+        # Do the distance calculations
+        distf2 = calculate_distance(poses[next_follower_id], poses[neighbor_id])
+
+        distf1 = calculate_distance(poses[follower_id], poses[neighbor_id])
+
+        if distf2 < distf1:
+            return 
+        else:
+            pass
+
     if (neighbor_id != 55):
         rospy.loginfo('Started FOLLOWER 2 ROUTINE')
 
-        follower_neighbor_x = next_goal[follower_id][0] - poses[neighbor_id][0]
-        follower_neighbor_y = next_goal[follower_id][1] - poses[neighbor_id][1]
+        follower_neighbor_x = abs( next_goal[follower_id][0] - poses[neighbor_id][0] )
+        follower_neighbor_y = abs( next_goal[follower_id][1] - poses[neighbor_id][1] )
 
         #procedure:
         if ((follower_neighbor_x < follower_neighbor_y) or align_axis[follower_id][0]==0):
-            align(poses[neighbor_id], neighbor_id ,poses[follower_id],follower_id ,'x' )
+            align(poses[neighbor_id], neighbor_id ,next_goal[follower_id],follower_id ,'x' )
 
         elif((follower_neighbor_x > follower_neighbor_y) or align_axis[follower_id][1]==1):
-            align(poses[neighbor_id], neighbor_id ,poses[follower_id],follower_id ,'y' )
+            align(poses[neighbor_id], neighbor_id ,next_goal[follower_id],follower_id ,'y' )
 
         shape_sides -= 1
         shape_corner_robots[neighbor_id] = next_goal[neighbor_id]
@@ -817,7 +857,7 @@ def check_positions():
 ###############################################################################
 if __name__== '__main__':
     rospy.init_node('formation_node_rob2')
-    rospy.loginfo ('Formation node started for Robot [2]')
+    rospy.loginfo ('Formation node started for Robot [1]')
 
     who_am_I()
     listeners()
