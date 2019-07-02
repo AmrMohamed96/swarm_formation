@@ -29,12 +29,13 @@ def test():
     newLead.publish(1)
     rospy.loginfo("Published new leader once")
 
-
     resetLead = rospy.Publisher('reset_leader_stats', Byte, queue_size=1)
     rospy.loginfo("Sleeping for 5 seconds")
     time.sleep(5)
     resetLead.publish(1)
     rospy.loginfo("Reset Leader Status")
+
+    Rate = rospy.Rate(10)
 
     while not rospy.is_shutdown():
         pub1.publish(test)
@@ -46,6 +47,8 @@ def test():
         pub6.publish(pos)
         pub7.publish(pos)
         pub8.publish(pos)
+
+        Rate.sleep()
 
 if __name__ == '__main__':
     try:
