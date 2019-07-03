@@ -141,7 +141,7 @@ def robots_num_callback(data):
 def set_new_leader_callback(data):
     global robot_status, prev_robot_status, leader_history
     robot_status = [0,0,0,0]
-    robot_status[data.data - 1] = 1
+    robot_status[data.data -1] = 1
     if prev_robot_status != robot_status:
         leader_history[data.data -1] += 1
         rospy.loginfo("New Leader: Robot " + str(data.data) + " is now leader")

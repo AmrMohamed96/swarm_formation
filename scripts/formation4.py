@@ -68,6 +68,8 @@ g2g_flag = 0
 system_latency = 5
 final_finish_flag = 0
 
+possible_flag = 0
+
 ###############################################################################
 # ROBOT CLASS - CONTAINS ROBOT RELATED PARAMETERS
 ###############################################################################
@@ -205,6 +207,10 @@ def callback_leader_final_goal(data):
     R1_gx_cm = data.data[0]
     R1_gy_cm = data.data[1]
 
+def possibility_callback(data):
+    global possible_flag
+    possible_flag = data.data
+
 ###############################################################################
 # WHO AM I FUNCTION - IT RUNS ONCE WITHIN MAIN CODE
 ###############################################################################
@@ -256,6 +262,9 @@ def listeners():
     # robot status subscriber
     rospy.Subscriber('robot_status', Int32MultiArray, callback_status)
 
+    # possibility flag
+    rospy.Subscriber('formation_possible_flag', Byte, possibility_callback)
+
 ###############################################################################
 # JUSTIFY DISTANCE FUNCTION
 ###############################################################################
@@ -272,21 +281,53 @@ def justify_distance(next,base,length):
     #1. initialize justified Point to 0,0:
     justified_point=[0,0]
 
-    #2. check that next and bas sharing the same x:
-    if next[0]==base[0]:
-        justified_point[0]= base[0]
-        if base[1]<next[1]: #next is above the base
-            justified_point[1]=base[1]+length
-        else: #next is below
-            justified_point[1]=base[1]-length
+    # flag of 3 means any quad will be okay
+    if possible_flag == 3:
+        #2. check that next and bas sharing the same x:
+        if next[0]==base[0]:
+            justified_point[0]= base[0]
+            if base[1]<next[1]: #next is above the base
+                justified_point[1]=base[1] + length
+            else: #next is below
+                justified_point[1]=base[1] - length
 
-    #3. check that next and bas sharing the same y:
-    elif next[1]==base[1]:
-        justified_point[1]= base[1]
-        if base[0]<next[0]: #next is above the base
-            justified_point[0]=base[0]+length
-        else:
+        #3. check that next and bas sharing the same y:
+        elif next[1]==base[1]:
+            justified_point[1]= base[1]
+            if base[0]<next[0]: #next is above the base
+                justified_point[0]=base[0] + length
+            else:
+                justified_point[0]=base[0] - length
+
+    # flag of 2 means only 4th quad case
+    if possible_flag == 2:
+        #2. check that next and bas sharing the same x:
+        if next[0]==base[0]:
+            justified_point[0]= base[0]
+            justified_point[1]= base[1]-length
+
+        #3. check that next and bas sharing the same y:
+        elif next[1]==base[1]:
+            justified_point[1]= base[1]
             justified_point[0]=base[0]-length
+
+    # flag of 1 means only 1st quad case
+    if possible_flag == 1:
+        #2. check that next and bas sharing the same x:
+        if next[0]==base[0]:
+            justified_point[0]= base[0]
+            justified_point[1]= base[1] + length
+
+        #3. check that next and bas sharing the same y:
+        elif next[1]==base[1]:
+            justified_point[1]= base[1]
+            justified_point[0]= base[0] + length
+
+    # flag of zero means we need to set another leader
+    if possible_flag == 0:
+        rospy.logerr('Formation will not be possible. Reset leader or restart system')
+        while 1:
+            continue
 
     return justified_point
 
@@ -306,7 +347,7 @@ def align(follower,follower_num,leader,leader_num,direction):
     next_list=next_goal
     #align in x or y as demand:
     if (direction=='x'):
-        rospy.loginfo('Aligning Robot{} with Robot {} in X Axis'.format(follower_num+1, leader_num+1))
+        rospy.loginfo('Aligning Robot [{}] with Robot [{}] in [X] Axis'.format(follower_num+1, leader_num+1))
         #1. make the next goal in x equals to follower x :
         next_list[follower_num][0]=follower[0]
         #2. make the next goal in y equals to leader y :
@@ -316,17 +357,18 @@ def align(follower,follower_num,leader,leader_num,direction):
         align_axis_follower = align_axis[follower_num]
         align_axis_leader[0]=1
         align_axis_follower[0]=1
-        rospy.loginfo('Align Axis for Leader is: {}'.format(align_axis_leader))
+        rospy.loginfo('Align Axis for Robot [{}] is now: {}'.format(leader_num,align_axis_leader))
 
         pub_align_follower = rospy.Publisher('align_axis_rob'+str(follower_num+1), Int32MultiArray, queue_size=10)
         pub_align_rob = rospy.Publisher('align_axis_rob'+str(R.ID), Int32MultiArray,queue_size=10)
+        rospy.loginfo('Sleeping some time to ensure connections to align axis')
         time.sleep(5)
         pub_align_rob.publish( Int32MultiArray(data=align_axis_leader))
         pub_align_follower.publish( Int32MultiArray(data=align_axis_follower))
 
 
     elif (direction=='y'):
-        rospy.loginfo('Aligning Robot{} with Robot {} in Y Axis'.format(follower_num+1, leader_num+1))
+        rospy.loginfo('Aligning Robot [{}] with Robot [{}] in [Y] Axis'.format(follower_num+1, leader_num+1))
         #1. make the next goal in x equals to leader x :
         next_list[follower_num][0]=leader[0]
         #2. make the next goal in y equals to follower y :
@@ -336,10 +378,11 @@ def align(follower,follower_num,leader,leader_num,direction):
         align_axis_follower = align_axis[follower_num]
         align_axis_leader[1]=1
         align_axis_follower[1]=1
-        rospy.loginfo('Align Axis for Leader is: {}'.format(align_axis_leader))
+        rospy.loginfo('Align Axis for Robot [{}] is now: {}'.format(leader_num,align_axis_leader))
 
         pub_align_follower = rospy.Publisher('align_axis_rob'+str(follower_num+1), Int32MultiArray ,queue_size=10)
         pub_align_rob = rospy.Publisher('align_axis_rob'+str(R.ID), Int32MultiArray,queue_size=10)
+        rospy.loginfo('Sleeping some time to ensure connections to align axis')
         time.sleep(5)
         pub_align_rob.publish( Int32MultiArray(data=align_axis_leader))
         pub_align_follower.publish( Int32MultiArray(data=align_axis_follower))
@@ -348,6 +391,7 @@ def align(follower,follower_num,leader,leader_num,direction):
     next_list[follower_num] = justify_distance(next_list[follower_num],leader,shape_length)
     next_list=numpy.reshape(next_list,(8))
     pub_update_next_goals.publish(Int32MultiArray(data= next_list))
+    rospy.loginfo('Sleeping some time to ensure other robots get the updated data in next_goals')
     time.sleep(5)
 
 
@@ -537,7 +581,7 @@ def final():
 
                     next_goal_list = next_goal #old next_goal list of lists that we subscribed
                     next_goal_list=numpy.reshape(next_goal,(8))
-                    my_index = (R.ID - 1) + 2
+                    my_index = ( 2 * R.ID ) - 2
                     next_goal_list[my_index]= R1_gx_cm
                     next_goal_list[my_index + 1]= R1_gy_cm
 
@@ -560,12 +604,11 @@ def final():
 
                     next_goal_list = next_goal
                     next_goal_list = numpy.reshape(next_goal,(8))
-                    my_index = (R.ID - 1) + 2
+                    my_index = ( 2 * R.ID ) - 2
                     next_goal_list[my_index] = poses[R.ID-1][0]
                     next_goal_list[my_index + 1] = poses[R.ID-1][1]
 
                     pub_update_next_goals.publish( Int32MultiArray(data=next_goal_list) )
-
 
                     shape_corner_robots[0]=[rob1_goal_x,rob1_goal_y]
                     nearest_two_neighbors=find_nearest_two_neighbors(R.ID-1)
@@ -655,7 +698,8 @@ def final():
             move(R.ID)
             follower3GoalFlag.publish(1)
             final_finish_flag = 1
-            print "Everything was done. Spinning"
+            print "Formation completed"
+            print "Thank you for using SWARM 2019 Formation Algorithm"
 
 
 ###############################################################################
@@ -669,6 +713,7 @@ def followers_routine_step1(leader_id,f1_id,f2_id):
 
     leader_follower1_x = abs( poses[leader_id][0] - poses[f1_id][0] )
     leader_follower1_y = abs( poses[leader_id][1] - poses[f1_id][1] )
+
     leader_follower2_x = abs( poses[leader_id][0] - poses[f2_id][0] )
     leader_follower2_y = abs( poses[leader_id][1] - poses[f2_id][1] )
 
@@ -684,15 +729,16 @@ def followers_routine_step1(leader_id,f1_id,f2_id):
 
     shape_sides -= 1
     shape_corner_robots[f1_id]=next_goal[f1_id]
+
     #follower2 procedure:
     if ((leader_follower2_x < leader_follower2_y) and align_axis[leader_id][1]==0):
         align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'y' )
     elif ((leader_follower2_x > leader_follower2_y) and align_axis[leader_id][0]==0):
         align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'x' )
     elif align_axis[leader_id][0]==0:
-        align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'x' )
+        align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'x' )
     elif align_axis[leader_id][1]==0:
-        align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'y' )
+        align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'y' )
 
     shape_sides -= 1
     shape_corner_robots[f2_id]=next_goal[f2_id]
@@ -857,7 +903,7 @@ def check_positions():
 ###############################################################################
 if __name__== '__main__':
     rospy.init_node('formation_node_rob4')
-    rospy.loginfo ('Formation node started for Robot [1]')
+    rospy.loginfo ('Formation node started for Robot [4]')
 
     who_am_I()
     listeners()

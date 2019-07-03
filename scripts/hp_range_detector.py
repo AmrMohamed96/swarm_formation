@@ -23,10 +23,15 @@ rob4_position = [0,0,0]
 inrange_count = [0,0,0,0]
 
 # shape parameters and robot position variables
-current_shape = '-1'
+current_shape = ''
 current_shape_length = -1
 current_leader_pos = [-1,-1,-1]
-possibile_flag = 1
+possibile_flag = 0
+
+checking_loop_count = 0
+first_leader_assigned = 0
+possible_leader = 0
+recursion_flag = 0
 
 system_latency = 5
 
@@ -75,6 +80,63 @@ def rerun_range_sensors_callback(data):
 ###############################################################################
 # Setting a leader based on data, and checking if it needs motion
 ###############################################################################
+def check_formation_at_leader(leader_id):
+    global checking_loop_count, possibile_flag, possible_leader, recursion_flag
+    current_eval_leader = leader_id
+    checking_loop_count +=1
+    possibile_flag = 0
+
+    # base case for recursions:
+    if checking_loop_count < 5:
+        rospy.loginfo('Checking formation possibility at leader: %d' %(leader_id+1))
+        all_positions = [ rob1_position, rob2_position, rob3_position, rob4_position]
+        current_leader_pos = all_positions[leader_id]
+
+        if current_shape_length > 17.5:
+            # checking if square shape is possible in which quad
+            if current_shape == 'square':
+                # 1st quad
+                x_max = current_leader_pos[0] + current_shape_length
+                y_max = current_leader_pos[1] + current_shape_length
+
+                if (x_max < grid_dimension * grid_blocks) and (y_max < grid_dimension * grid_blocks):
+                    possibile_flag = 1
+            
+                x_min = current_leader_pos[0] - current_shape_length
+                y_min = current_leader_pos[1] - current_shape_length
+
+                if (x_min > 0) and (y_min > 0):
+                    possibile_flag +=2
+        else:
+            rospy.logerr('Shape length is too small')
+            return 0
+        
+        if possibile_flag == 1:
+            rospy.loginfo('Formation possible in 1st quad only')
+            possible_leader = current_eval_leader 
+            recursion_flag = 1
+            return 1
+
+        elif possibile_flag == 2:
+            rospy.loginfo('Formation possible in 4th quad only')
+            possible_leader = current_eval_leader
+            recursion_flag = 1 
+            return 1
+
+        elif possibile_flag == 3:
+            rospy.loginfo('Formation possible in 1st and 4th quad')
+            possible_leader = current_eval_leader
+            recursion_flag = 1
+            return 1
+
+        elif possibile_flag == 0:
+            rospy.logwarn('Formation is not possible with Robot [%d] as leader. Checkanother one'% (leader_id+1))
+            check_formation_at_leader( ( first_leader_assigned + checking_loop_count )%4 )
+
+    else:
+        rospy.logerr('FORMATION NOT AT ALL POSSIBLE')
+        return 0
+
 def set_and_check_leader():
     """
     Function loops over the inrange_count list, checks who sees the most
@@ -84,7 +146,7 @@ def set_and_check_leader():
     - After assignment, the function checks that a formation is possible at the current
     leader
     """
-    global current_rob_status, current_leader, possibile_flag
+    global current_rob_status, current_leader, possibile_flag, first_leader_assigned, possible_leader
     # check which robot is the leader
     desired_leader = 0
     max = 0
@@ -93,77 +155,21 @@ def set_and_check_leader():
             max = inrange_count[i]
             desired_leader = i
 
-    # check if a formation is possible given the current situation
-    # create a list of lists of all positions to fetch the leader positions
-    all_positions = [ rob1_position, rob2_position, rob3_position, rob4_position]
-    current_leader_pos = all_positions[desired_leader]
-
-    # check that increments in any direction from the leader position will not
-    # exceed the test rig boundaries
-    x_positive_offset = current_leader_pos[0] + current_shape_length
-    x_negative_offset = current_leader_pos[1] - current_shape_length
-    y_positive_offset = current_leader_pos[0] + current_shape_length
-    y_negative_offset = current_leader_pos[1] - current_shape_length
-
-    # diagonal formation is special because it has side lengths that can be
-    # greater than grid size, so we test that first
-    if current_shape == 'diagonal':
-        sin_45 = sin(pi/4)
-        cos_45 = cos(pi/4)
-
-        x_positive_offset = current_leader_pos[0] + ( current_shape_length * cos_45)
-        x_negative_offset = current_leader_pos[1] - ( current_shape_length * cos_45)
-        y_positive_offset = current_leader_pos[0] + ( current_shape_length * sin_45)
-        y_negative_offset = current_leader_pos[1] - ( current_shape_length * sin_45)
-
-        if (( x_positive_offset <= (grid_dimension * grid_blocks) )  and ( y_positive_offset <= (grid_dimension * grid_blocks) )):
-            rospy.loginfo('Diagonal formation is POSSIBLE in +ve direction with ROBOT {} as leader'.format(desired_leader +1))
-        elif (( x_negative_offset <= (grid_dimension * grid_blocks) ) and ( y_negative_offset <= (grid_dimension * grid_blocks) )):
-            rospy.loginfo('Diagonal formation is POSSIBLE in -ve direction with ROBOT {} as leader'.format(desired_leader +1))
-        else:
-            rospy.logwarn('Diagonal formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
-            # raise a flag for the formation to move the robot in another position
-            possibile_flag = 0
-
-    # other shapes are tested here
-    else:
-        # since most shapes are horizontal or vertical, we test that the positions are within any boundary of the
-        # grid. The (-1) for the blocks is because the robot can't get near the reference tag
-        if current_shape_length > grid_dimension * (grid_blocks-1):
-            rospy.logwarn('FORMATION IS ABSOLUTELY NOT POSSIBLE WITH CURRENT SHAPE LENGTH')
-            rospy.logwarn('NO LEADER WILL BE SELECTED. PLEASE CHANGE PARAMETERS\n')
-            rospy.signal_shutdown("No possible formation")
-
-        if current_shape == 'square':
-            if (( x_positive_offset <= (grid_dimension * grid_blocks) ) or ( x_negative_offset > grid_dimension )) and (( y_positive_offset <= (grid_dimension * grid_blocks) ) or ( y_negative_offset > grid_dimension )):
-                rospy.loginfo('Square formation is POSSIBLE with ROBOT {} as leader'.format(desired_leader +1))
-            else:
-                rospy.logwarn('Square formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
-                # raise a flag for the formation to move the robot in another position
-                possibile_flag = 0
-
-        if current_shape == 'line':
-            if ( x_positive_offset <= (grid_dimension * grid_blocks) ) and ( x_negative_offset > grid_dimension ):
-                rospy.loginfo('Line formation is POSSIBLE with ROBOT {} as leader'.format(desired_leader +1))
-
-            else:
-                rospy.logwarn('Line formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
-                # raise a flag for the formation to move the robot in another position
-                possibile_flag = 0
-
-        if current_shape == 'column':
-            if ( y_positive_offset <= (grid_dimension * grid_blocks) ) and ( y_negative_offset > grid_dimension ):
-                rospy.loginfo('Column formation is POSSIBLE with ROBOT {} as leader'.format(desired_leader +1))
-            else:
-                rospy.logwarn('Column formation is NOT POSSIBLE with ROBOT {} as leader in current position'.format(desired_leader +1))
-                # raise a flag for the formation to move the robot in another position
-                possibile_flag = 0
-
     # set the leader
     setLead = rospy.Publisher('set_new_leader', Byte, queue_size=1)
     time.sleep(system_latency)
-    setLead.publish(desired_leader+1)
     rospy.loginfo('Leader will be Robot {} as it sees {} robots'.format(desired_leader + 1, inrange_count[desired_leader]))
+    
+    first_leader_assigned = desired_leader
+
+    check_formation_at_leader(desired_leader)
+
+    print "Recursion flag: ", recursion_flag
+    if recursion_flag:
+        # publish the leader ID
+        print "Published id = ", possible_leader
+        setLead.publish(possible_leader+1)
+        possibleFormation.publish(possibile_flag)
 
 ###############################################################################
 # Range Detector Simulator Functions
@@ -262,6 +268,10 @@ if __name__ == '__main__':
         check_in_range_rob2()
         check_in_range_rob3()
         check_in_range_rob4()
+        while current_shape == '':
+            rospy.Subscriber('formation_shape_name', String, formation_name_callback)
+            rospy.sleep(5)
+            
         set_and_check_leader()
 
         # stay in a loop publishing until another run is issues via the subscriber

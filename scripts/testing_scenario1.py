@@ -8,13 +8,13 @@ from time import sleep
 
 # Robots Positions
 # robot 1 is at pixels (2,1) looking at the +ve X-axis direction
-rob3_pos = [35,17.5, (-pi/2)*100]
+rob1_pos = [35,17.5, (pi/2)*100]
 
-# robot 2 is at pixels (4,3) looking at the +ve X-axis direction
-rob1_pos = [70,52.5, (-pi/2)*100]
+# robot 2 is at pixels (4,2) looking at the +ve X-axis direction
+rob2_pos = [70,35, (pi/2)*100]
 
-# robot 3 is at pixels (4,2) looking at the +ve X-axis direction
-rob2_pos = [70, 35, (-pi/2)*100]
+# robot 3 is at pixels (3,4) looking at the +ve X-axis direction
+rob3_pos = [52.5, 70, (pi/2)*100]
 
 # robot 4 is at pixels (5,6) lookng at the +ve X-Axis direction
 rob4_pos = [87.5,105, (-pi/2)*100]

@@ -19,7 +19,7 @@ pub= rospy.Publisher('req_shape',String, queue_size=10)
 pub1= rospy.Publisher('c2c_distance_px',String, queue_size=10)
 pub2 = rospy.Publisher('robots_num', String, queue_size=10)
 
-rospy.loginfo('Sleeping for %d to ensure connections to publishers.' % system_latency)
+rospy.loginfo('Sleeping for %d seconds to ensure connections to publishers.' % system_latency)
 time.sleep(system_latency)
 
 
