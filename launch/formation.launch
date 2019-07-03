@@ -1,0 +1,16 @@
+<launch>
+  <!-- MOTION CONTROL HARDWARE CONTROL LAUNCH FILE -->
+  <include file="$(find motion_control)/launch/motion_control.launch" output="screen"/>
+
+  <!-- GO TO GOAL NODE -->
+  <node pkg="go_to_goal" type="mod_go1.py" name="go_to_goal_rob1" output="screen"/>
+
+  <!-- PATH PLANNING NODE -->
+  <node pkg="path_planning" type="a_star_ros1.py" name="a_star_rob1" output="screen"/>
+
+  <!-- FORMATION NODE -->
+  <node pkg="swarm_formation_19" type="formation.py" name="formation_rob1" output="screen">
+     <rosparam param="robot_id">1</rosparam>
+     <remap from="formation_node_rob1" to="formation_node_rob1" />
+  </node>
+</launch>
