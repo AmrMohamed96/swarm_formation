@@ -30,6 +30,7 @@ def shape():
 	shapes = raw_input("Choose a formation from (line, column, triangle, diagonal, l-shape, square): ")
 	c2c_distance_px = raw_input("Choose the corner to corner distance: ")
 	robots_num = raw_input("Enter number of robots in the system: ")
+	shapes = shapes.lower()
 
 if __name__== '__main__':
 	shape()
