@@ -720,10 +720,13 @@ def followers_routine_step1(leader_id,f1_id,f2_id):
     #follower1 procedure:
     if ((leader_follower1_x < leader_follower1_y) and align_axis[leader_id][1]==0):
         align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'y' )
+        
     elif ((leader_follower1_x > leader_follower1_y) and align_axis[leader_id][0]==0):
         align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'x' )
+
     elif align_axis[leader_id][0]==0:
         align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'x' )
+
     elif align_axis[leader_id][1]==0:
         align(poses[f1_id], f1_id ,poses[leader_id],leader_id ,'y' )
 
@@ -733,10 +736,13 @@ def followers_routine_step1(leader_id,f1_id,f2_id):
     #follower2 procedure:
     if ((leader_follower2_x < leader_follower2_y) and align_axis[leader_id][1]==0):
         align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'y' )
+
     elif ((leader_follower2_x > leader_follower2_y) and align_axis[leader_id][0]==0):
         align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'x' )
+
     elif align_axis[leader_id][0]==0:
         align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'x' )
+
     elif align_axis[leader_id][1]==0:
         align(poses[f2_id], f2_id ,poses[leader_id],leader_id ,'y' )
 
@@ -771,10 +777,16 @@ def followers_routine_step2(follower_id,neighbor_id,next_follower_id):
         follower_neighbor_y = abs( next_goal[follower_id][1] - poses[neighbor_id][1] )
 
         #procedure:
-        if ((follower_neighbor_x < follower_neighbor_y) or align_axis[follower_id][0]==0):
+        if ((follower_neighbor_x < follower_neighbor_y) or align_axis[follower_id][1]==0):
+            align(poses[neighbor_id], neighbor_id ,next_goal[follower_id],follower_id ,'y' )
+
+        elif((follower_neighbor_x > follower_neighbor_y) or align_axis[follower_id][0]==0):
             align(poses[neighbor_id], neighbor_id ,next_goal[follower_id],follower_id ,'x' )
 
-        elif((follower_neighbor_x > follower_neighbor_y) or align_axis[follower_id][1]==1):
+        elif align_axis[follower_id][0]==0:
+            align(poses[neighbor_id], neighbor_id ,next_goal[follower_id],follower_id ,'x' )
+
+        elif align_axis[follower_id][1]==0:
             align(poses[neighbor_id], neighbor_id ,next_goal[follower_id],follower_id ,'y' )
 
         shape_sides -= 1

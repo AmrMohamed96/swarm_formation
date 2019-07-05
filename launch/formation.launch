@@ -1,6 +1,6 @@
 <launch>
   <!-- MOTION CONTROL HARDWARE CONTROL LAUNCH FILE -->
-  <include file="$(find motion_control)/launch/motion_control.launch" output="screen"/>
+  <include file="$(find motion_control)/launch/motion_control.launch"/>
 
   <!-- GO TO GOAL NODE -->
   <node pkg="go_to_goal" type="mod_go1.py" name="go_to_goal_rob1" output="screen"/>
