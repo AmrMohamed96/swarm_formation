@@ -40,7 +40,7 @@ leader_history = [0,0,0,0]
 # next goals for all robots, index indicates robot number
 next_goals = [ [0,0], [0,0], [0,0], [0,0] ]
 
-grid_size = 17.5
+grid_size = 0
 
 # converted next goals
 next_goals_px = [ [0,0], [0,0], [0,0], [0,0] ]
@@ -157,6 +157,38 @@ def reset_leader_stats_callback(data):
         rospy.loginfo("Leaders has been reset. Execution of follower 4 routine ready")
 
 ###############################################################################
+# Reset All Global Node
+###############################################################################
+def reset_global_callback(data):
+    global next_goals, next_goals_px, robot_status, align_axis, shape_length, shape_sides, shape_name, shape_corner_robots
+    global y_sides, x_sides, grid_size, prev_robot_status, leader_history
+
+    if data.data:
+        # a list of list to show status of alignment of each robot
+        align_axis = [ [0,0],[0,0],[0,0],[0,0] ]
+        # a list of lists that shows the coordinates of robots forming corners
+        shape_corner_robots = [ [0,0],[0,0],[0,0],[0,0] ]
+        # pattern estimation parameters
+        shape_length = 0
+        shape_sides = 0
+        shape_name = ''
+        x_sides = [0,0,0,0]
+        y_sides = [0,0,0,0]
+        # logging parameters that we introduced to the global node
+        # 1: Leader, 2: Follower1, 3: Follower2
+        robot_status = [0,0,0,0]
+        prev_robot_status = [0,0,0,0]
+        # Rob Num: Leader Count
+        leader_history = [0,0,0,0]
+        # next goals for all robots, index indicates robot number
+        next_goals = [ [0,0], [0,0], [0,0], [0,0] ]
+        grid_size = rospy.get_param('/grid_dimension')
+        # converted next goals
+        next_goals_px = [ [0,0], [0,0], [0,0], [0,0] ]
+
+        rospy.logwarn('GLOBAL NODE HAS BEEN RESET. ALL VARs CLEARED')
+
+###############################################################################
 # Function to update followers status
 ###############################################################################
 def assign_followers_callback(data):
@@ -232,6 +264,7 @@ def global_talker():
 
     # subscriber to reset the leader
     rospy.Subscriber('reset_leader_stats', Byte, reset_leader_stats_callback)
+    rospy.Subscriber('reset_global', Byte, reset_global_callback)
 
     # subscriber to shape parameters
     rospy.Subscriber('req_shape', String, req_shape_callback)
@@ -273,6 +306,10 @@ if __name__ == '__main__':
         # initializing the global node
         rospy.init_node('formation_global_knowledge')
         rospy.loginfo("%s started" % rospy.get_name())
+
+        # fetch necessary global params
+        grid_size = rospy.get_param('/grid_dimension')
+
         global_talker()
     except rospy.ROSInterruptException:
         pass
