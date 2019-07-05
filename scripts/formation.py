@@ -77,7 +77,7 @@ class RobotClass:
     ID= -1
     status=-1
     def __init__(self,status=0):
-        self.ID = rospy.get_param('~robot_id', 1)
+        self.ID = rospy.get_param('/robot_id')
         self.status=status
     def set_ID(self, ID):
         self.ID = ID
