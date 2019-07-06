@@ -13,7 +13,7 @@ Ad2 =Ad3 =Ad4= 0
 #desired distance of the formation shape
 Dd=0
 #orientation in radians:
-A2=A3=0
+A2=A3=A4=0
 #formation shape:
 shapes = ''
 
@@ -32,7 +32,7 @@ swarm_robots_num=4 # this year we have 4 robots
 R1_gx_cm = R1_gy_cm =0
 #leader final position
 rob1_goal_x =rob1_goal_y =0
-#leader current position:
+#robot 1 current position:
 x1=y1=a1=0
 #robot 2 current position:
 x2=y2=a2=0
@@ -183,7 +183,7 @@ def callback_rob3_current_pos(data): #current position of robot 3
     a3 = data.data[2]
 
 def callback_rob4_current_pos(data): #current position of robot 4
-    global x4, y4, a3
+    global x4, y4, a4
     #rospy.loginfo('robot4 current position and rotation are {}'.format(data.data))
     x4 = data.data[0]
     y4 = data.data[1]
@@ -459,81 +459,139 @@ def calculations():
     ''' This function is to calculate the the follower1 and follower2 goal
         position based on leader position and the shape given
     '''
-    global A2, A3 ,f13_CM ,f12_CM ,rob3_goal ,rob2_goal ,rob2_goal_px ,rob3_goal_px
+    global A2, A3, A4 ,f13_CM ,f12_CM ,rob2_goal ,rob3_goal, rob4_goal, rob2_goal_px ,rob3_goal_px, rob4_goal_px,R
+    #create lists for angles and goals indicies
+    A=[]
+    rob_goal_x_list = []
+    rob_goal_y_list = []
+    distances=[]
+
     #change the angels into radians
     A2 = Ad2*(math.pi/180)
     A3 = Ad3*(math.pi/180)
+    A4 = Ad4*(math.pi/180)
+    
+    #initialize lists of the angles and goals 
+    A=[A2,A3,A4]
+    rob_goal_x_list=[x1,x2,x3,x4]
+    rob_goal_y_list=[y1,y2,y3,y4]
+    distances=[[1,2,3],[1,2,3],[1,2,3]]
 
-    #calculate positions of follower 1 and 2 which is robot 2 and 3:
-    rob2_goal_x = int(round(rob1_goal_x + (Dd*math.cos(A2))))
-    rob3_goal_x = int(round(rob1_goal_x + (Dd*math.cos(A3))))
+    #calculate goals for the all robots:
+    rob_goal_x_list[R.ID-1]=poses[R.ID-1][0]
+    rob_goal_y_list[R.ID-1]=poses[R.ID-1][1]
+    for i in [1,2,3]:
+        rob_goal_x_list[(R.ID-1+i)%4] = int(round(rob_goal_x_list[R.ID-1] + (Dd*math.cos(A[(i-1)]))))
+        rob_goal_y_list[(R.ID-1+i)%4] = int(round(rob_goal_y_list[R.ID-1] + (Dd*math.sin(A[(i-1)]))))
 
-    rob2_goal_y = int(round(rob1_goal_y - (Dd*math.sin(A2))))
-    rob3_goal_y = int(round(rob1_goal_y - (Dd*math.sin(A3))))
+    #create list of lists for goals
+    rob_goal_list=[]
+    rob_goal_list_px=[]
+    for i in [0,1,2,3]:
+        rob_goal_list.append([rob_goal_x_list[i],rob_goal_y_list[i]])
+        rob_goal_list_px.append([ rob_goal_x_list[i]/grid_dim , rob_goal_y_list[i]/grid_dim ])
+    
+    #calculate the distances between the current position of the robot and both formations positions    
+    for i in [1,2,3]:
+        for j in [1,2,3]:
+            distances[i-1][j-1] = calculate_distance( poses[(R.ID-1+i)%4] , rob_goal_list[(R.ID-1+j)%4])
+            print "distances[{}][{}]",(i-1),(j-1),"[(R.ID-1+i)%4]:",[(R.ID-1+i)%4],"[(R.ID-1+j)%4]:",[(R.ID-1+j)%4]
+    
+    # d2_goal2 = calculate_distance([x2,y2],[rob2_goal_x,rob2_goal_y])
+    # d2_goal3 = calculate_distance([x2,y2],[rob3_goal_x,rob3_goal_y])
+    # d2_goal4 = calculate_distance([x2,y2],[rob4_goal_x,rob4_goal_y])
+     
+    # d3_goal2 = calculate_distance([x3,y3],[rob2_goal_x,rob2_goal_y])
+    # d3_goal3 = calculate_distance([x3,y3],[rob3_goal_x,rob3_goal_y])
+    # d3_goal4 = calculate_distance([x3,y3],[rob4_goal_x,rob4_goal_y])
 
-    #print rob2_goal_x ,rob2_goal_y
+    # d4_goal2 = calculate_distance([x4,y4],[rob2_goal_x,rob2_goal_y])
+    # d4_goal3 = calculate_distance([x4,y4],[rob3_goal_x,rob3_goal_y])
+    # d4_goal4 = calculate_distance([x4,y4],[rob4_goal_x,rob4_goal_y])
 
-    #calculate the distances between the current position of the robot and both formations positions
-    dA1 = math.sqrt(pow((x2-rob2_goal_x),2)+pow((y2-rob2_goal_y),2))
-    dA2 = math.sqrt(pow((x2-rob3_goal_x),2)+pow((y2-rob3_goal_y),2))
-    dB1 = math.sqrt(pow((x3-rob2_goal_x),2)+pow((y3-rob2_goal_y),2))
-    dB2 = math.sqrt(pow((x3-rob3_goal_x),2)+pow((y3-rob3_goal_y),2))
     #set values of the distances in an array
-    DA = [dA1 , dA2]
-    DB = [dB1 , dB2]
+    DA=distances[0]
+    DB=distances[1]
+    DC=distances[2]
+    
+    # DA = [d2_goal2, d2_goal3, d2_goal4]
+    # DB = [d3_goal2, d3_goal3, d3_goal4]
+    # DC = [d4_goal2, d4_goal3, d4_goal4]
+    minumum_DA = DA[1]
+    minumum_DB = DB[1]
+    minumum_DC = DC[1]
+    
+    DA_min_index = 0
+    DB_min_index = 0
+    DC_min_index = 0
 
-    #sort the distances to find the longest and shortest distance for each robot
-    list.sort(DA)
-    list.sort(DB)
+    for i in [0,1,2]:
+        if DA[i]<minumum_DA:
+            minumum_DA = DA[i]
+            DA_min_index = i
+            
+        if DB[i]<minumum_DB:
+            minumum_DB = DB[i]
+            DB_min_index = i
+    
+        if DC[i]<minumum_DC:
+            minumum_DC = DC[i]
+            DC_min_index=i
 
-    #change the final positions into pixels
-    rob2_goal_x_px = math.ceil(((rob2_goal_x * 2.43308) /42.9))-1
-    rob2_goal_y_px = math.ceil(((rob2_goal_y * 2.43308) /40.4))-1
-
-    rob3_goal_x_px = math.ceil(((rob3_goal_x * 2.43308) /42.9))-1
-    rob3_goal_y_px = math.ceil(((rob3_goal_y * 2.43308) /40.4))-1
-
-    #check for the longest distance any robot would move
-    if DA[1] < DB[1]:
-        #send the robot the closest position to it
-        if (dB2 > dB1):
-            rob3_goal = numpy.array([ rob2_goal_x , rob2_goal_y , a1 ],Int32MultiArray)
-            rob2_goal = numpy.array([ rob3_goal_x , rob3_goal_y , a1 ],Int32MultiArray)
-            rob3_goal_px = numpy.array([ rob2_goal_x_px , rob2_goal_y_px , a1 ],Int32MultiArray)
-            rob2_goal_px = numpy.array([ rob3_goal_x_px , rob3_goal_y_px , a1 ],Int32MultiArray)
-        else:
-            rob2_goal = numpy.array([ rob2_goal_x , rob2_goal_y , a1 ],Int32MultiArray)
-            rob3_goal = numpy.array([ rob3_goal_x , rob3_goal_y , a1 ],Int32MultiArray)
-            rob2_goal_px = numpy.array([ rob2_goal_x_px , rob2_goal_y_px , a1 ],Int32MultiArray)
-            rob3_goal_px = numpy.array([ rob3_goal_x_px , rob3_goal_y_px , a1 ],Int32MultiArray)
-
-    else:
-        if (dA2 > dA1):
-            rob2_goal = numpy.array([ rob2_goal_x , rob2_goal_y , a1 ],Int32MultiArray)
-            rob3_goal = numpy.array([ rob3_goal_x , rob3_goal_y , a1 ],Int32MultiArray)
-            rob2_goal_px = numpy.array([ rob2_goal_x_px , rob2_goal_y_px , a1 ],Int32MultiArray)
-            rob3_goal_px = numpy.array([ rob3_goal_x_px , rob3_goal_y_px , a1 ],Int32MultiArray)
-        else:
-            rob3_goal = numpy.array([ rob2_goal_x , rob2_goal_y , a1 ],Int32MultiArray)
-            rob2_goal = numpy.array([ rob3_goal_x , rob3_goal_y , a1 ],Int32MultiArray)
-            rob3_goal_px = numpy.array([ rob2_goal_x_px , rob2_goal_y_px , a1 ],Int32MultiArray)
-            rob2_goal_px = numpy.array([ rob3_goal_x_px , rob3_goal_y_px , a1 ],Int32MultiArray)
 
     #publish the formation positions:
-    f13_=Int32MultiArray(data=rob3_goal_px)
-    f12_=Int32MultiArray(data=rob2_goal_px)
-    print 'robot2 grid goal' ,rob2_goal_px
-    print 'robot3 grid goal' ,rob3_goal_px
-    pub_rob2_goal_px.publish(f12_)
-    pub_rob3_goal_px.publish(f13_)
+    pubs_px=[pub_rob1_goal_px , pub_rob2_goal_px , pub_rob3_goal_px , pub_rob4_goal_px]
+    pubs_cm=[pub_rob1_goal_cm , pub_rob2_goal_cm , pub_rob3_goal_cm , pub_rob4_goal_cm]
+    for i in [1,2,3,4]:
+        if R.ID == i: 
+            pubs_px[(i+0)%4].publish( numpy.array(rob_goal_list_px [DA_min_index],Int32MultiArray))
+            pubs_px[(i+1)%4].publish( numpy.array(rob_goal_list_px [DB_min_index],Int32MultiArray))
+            pubs_px[(i+2)%4].publish( numpy.array(rob_goal_list_px [DC_min_index],Int32MultiArray))
 
-    f13_CM=Int32MultiArray(data=rob3_goal)
-    f12_CM=Int32MultiArray(data=rob2_goal)
-    print 'robot2 goal' ,rob2_goal
-    print 'robot3 goal' ,rob3_goal
-    pub_rob2_goal_cm.publish(f12_CM)
-    pub_rob3_goal_cm.publish(f13_CM)
+            pubs_cm[(i+0)%4].publish( numpy.array(rob_goal_list [DA_min_index],Int32MultiArray))  
+            pubs_cm[(i+1)%4].publish( numpy.array(rob_goal_list [DB_min_index],Int32MultiArray))  
+            pubs_cm[(i+2)%4].publish( numpy.array(rob_goal_list [DC_min_index],Int32MultiArray))  
 
+    # if R.ID == 1: 
+    #     #leader is robot1
+    #     pub_rob2_goal_px.publish( numpy.array(rob_goal_list_px [DA_min_index],Int32MultiArray))
+    #     pub_rob3_goal_px.publish( numpy.array(rob_goal_list_px [DB_min_index],Int32MultiArray))
+    #     pub_rob4_goal_px.publish( numpy.array(rob_goal_list_px [DC_min_index],Int32MultiArray))
+
+    #     pub_rob2_goal_cm.publish( numpy.array(rob_goal_list [DA_min_index],Int32MultiArray))  
+    #     pub_rob3_goal_cm.publish( numpy.array(rob_goal_list [DB_min_index],Int32MultiArray))  
+    #     pub_rob4_goal_cm.publish( numpy.array(rob_goal_list [DC_min_index],Int32MultiArray))  
+  
+    # elif R.ID ==2:
+    #     #leader is robot2
+    #     pub_rob3_goal_px.publish( numpy.array(rob_goal_list_px [DA_min_index],Int32MultiArray))
+    #     pub_rob4_goal_px.publish( numpy.array(rob_goal_list_px [DB_min_index],Int32MultiArray))
+    #     pub_rob1_goal_px.publish( numpy.array(rob_goal_list_px [DC_min_index],Int32MultiArray))
+
+    #     pub_rob3_goal_cm.publish( numpy.array(rob_goal_list [DA_min_index],Int32MultiArray))  
+    #     pub_rob4_goal_cm.publish( numpy.array(rob_goal_list [DB_min_index],Int32MultiArray))  
+    #     pub_rob1_goal_cm.publish( numpy.array(rob_goal_list [DC_min_index],Int32MultiArray))  
+  
+    # elif R.ID ==3:
+    #     #leader is robot3
+    #     pub_rob4_goal_px.publish( numpy.array(rob_goal_list_px [DA_min_index],Int32MultiArray))
+    #     pub_rob2_goal_px.publish( numpy.array(rob_goal_list_px [DB_min_index],Int32MultiArray))
+    #     pub_rob1_goal_px.publish( numpy.array(rob_goal_list_px [DC_min_index],Int32MultiArray))
+
+    #     pub_rob4_goal_cm.publish( numpy.array(rob_goal_list [DA_min_index],Int32MultiArray))  
+    #     pub_rob2_goal_cm.publish( numpy.array(rob_goal_list [DB_min_index],Int32MultiArray))  
+    #     pub_rob1_goal_cm.publish( numpy.array(rob_goal_list [DC_min_index],Int32MultiArray))  
+  
+    # elif R.ID ==4:
+    #     #leader is robot4
+    #     pub_rob1_goal_px.publish( numpy.array(rob_goal_list_px [DA_min_index],Int32MultiArray))
+    #     pub_rob2_goal_px.publish( numpy.array(rob_goal_list_px [DB_min_index],Int32MultiArray))
+    #     pub_rob3_goal_px.publish( numpy.array(rob_goal_list_px [DC_min_index],Int32MultiArray))
+
+    #     pub_rob1_goal_cm.publish( numpy.array(rob_goal_list [DA_min_index],Int32MultiArray))  
+    #     pub_rob2_goal_cm.publish( numpy.array(rob_goal_list [DB_min_index],Int32MultiArray))  
+    #     pub_rob3_goal_cm.publish( numpy.array(rob_goal_list [DC_min_index],Int32MultiArray))  
+  
 ###############################################################################
 # 2019 FORMATION FUNCTIONS
 ###############################################################################
@@ -558,9 +616,14 @@ def final():
         check leader goal is modified or not and calculate the follower1 and 2
         new goals and publish them.
     '''
-    global next_goal, align_axis,shape_corner_robots,poses, leader_finish_flag, final_finish_flag
+    global next_goal, align_axis,shape_corner_robots,poses, leader_finish_flag, final_finish_flag,shapes
     #rospy.loginfo('Entered the final() function')
-
+    #check if shapes is not a square and the robot is the leader 
+    #then do the normal calculations then return 
+    if shapes != 'square' and R.status ==1: 
+        calculations()
+        return
+    
     if ( shapes != '' ) and ( final_finish_flag != 1):
         if (R.status==1): #leader
             global x1 ,y1,rob1_goal_x ,rob1_goal_y,rob1_goal_x_px ,rob1_goal_y_px, leader_calc_flag
@@ -884,6 +947,7 @@ def calculate_distance(p1,p2):
     """
     dist= math.sqrt(pow((p2[0]-p1[0]),2)+pow((p2[1]-p1[1]),2))
     return dist
+
 
 ###############################################################################
 # SIGNALING ROBOT MOVE FUNCTION
