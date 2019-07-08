@@ -77,7 +77,7 @@ class RobotClass:
     ID= -1
     status=-1
     def __init__(self,status=0):
-        self.ID = rospy.get_param('~robot_id', 1)
+        self.ID = rospy.get_param('~robot_id', 2)
         self.status=status
     def set_ID(self, ID):
         self.ID = ID
@@ -985,7 +985,7 @@ def check_positions():
 # MAIN FUNCTION
 ###############################################################################
 if __name__== '__main__':
-    rospy.init_node('formation_node_rob1')
+    rospy.init_node('formation_node_rob2')
     rospy.loginfo ('Formation node started for Robot')
 
     who_am_I()
