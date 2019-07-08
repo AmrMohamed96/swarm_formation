@@ -91,7 +91,8 @@ def check_leader():
     rospy.loginfo('All range counts are: {}'.format(inrange_count))
 
     rangePub.publish( Int32MultiArray(data=inrange_count))
-    print "inrange_count is now published"
+    leaderPub.publish( desired_leader )
+    rospy.loginfo('inrange_count is now published')
 
 ###############################################################################
 # Range Detector Simulator Functions
@@ -164,7 +165,7 @@ def check_in_range_rob4():
 if __name__ == '__main__':
     try:
         # initialize ros node
-        rospy.init_node('hp_range_detector')
+        rospy.init_node('range_sensor_sim_node')
         rospy.loginfo('%s started' % rospy.get_name())
 
         # get the necessary global parameters
@@ -185,6 +186,7 @@ if __name__ == '__main__':
         time.sleep(system_latency)
 
         # initialize publisher
+        leaderPub = rospy.Publisher('potential_leader', Int32, queue_size=5)
         rangePub = rospy.Publisher('inrange_count', Int32MultiArray, queue_size=10)
 
         # run the checking algorithm once
@@ -203,9 +205,5 @@ if __name__ == '__main__':
 
         except KeyboardInterrupt:
             rospy.loginfo('Keyboard Interrupt Exception')
-
-    except rospy.ROSInterruptException:
-        pass
-
     finally:
         rospy.loginfo("%s closed." % rospy.get_name())

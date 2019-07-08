@@ -21,7 +21,7 @@ shapes = ''
 # CONSTANTS FOR THE FORMATION 2019
 ###############################################################################
 c2c_distance_px=1 # it is published from the user input and if not it by default =1
-grid_dim=17.5 #cm
+grid_dim=25 #cm
 grid_dig_dim=24.75 #cm
 swarm_robots_num=4 # this year we have 4 robots
 
@@ -68,7 +68,7 @@ g2g_flag = 0
 system_latency = 5
 final_finish_flag = 0
 
-possible_flag = 0
+quad_flag = 0
 
 ###############################################################################
 # ROBOT CLASS - CONTAINS ROBOT RELATED PARAMETERS
@@ -204,12 +204,13 @@ def callback_robots_current_poses(data):
 def callback_leader_final_goal(data):
     global R1_gx_cm, R1_gy_cm
     rospy.loginfo('leader will move to new goals {}'.format(data.data))
-    R1_gx_cm = data.data[0]
-    R1_gy_cm = data.data[1]
+    R1_gx_cm = data.data[0] * grid_dim
+    R1_gy_cm = data.data[1] * grid_dim
 
-def possibility_callback(data):
-    global possible_flag
-    possible_flag = data.data
+def quad_callback(data):
+    global quad_flag
+    quad_flag = data.data
+    rospy.loginfo('Formation will proceed in {} quad'.format(quad_flag))
 
 ###############################################################################
 # WHO AM I FUNCTION - IT RUNS ONCE WITHIN MAIN CODE
@@ -263,7 +264,7 @@ def listeners():
     rospy.Subscriber('robot_status', Int32MultiArray, callback_status)
 
     # possibility flag
-    rospy.Subscriber('formation_possible_flag', Byte, possibility_callback)
+    rospy.Subscriber('formation_quad', Int32, quad_callback)
 
 ###############################################################################
 # JUSTIFY DISTANCE FUNCTION
@@ -281,38 +282,8 @@ def justify_distance(next,base,length):
     #1. initialize justified Point to 0,0:
     justified_point=[0,0]
 
-    # flag of 3 means any quad will be okay
-    if possible_flag == 3:
-        #2. check that next and bas sharing the same x:
-        if next[0]==base[0]:
-            justified_point[0]= base[0]
-            if base[1]<next[1]: #next is above the base
-                justified_point[1]=base[1] + length
-            else: #next is below
-                justified_point[1]=base[1] - length
-
-        #3. check that next and bas sharing the same y:
-        elif next[1]==base[1]:
-            justified_point[1]= base[1]
-            if base[0]<next[0]: #next is above the base
-                justified_point[0]=base[0] + length
-            else:
-                justified_point[0]=base[0] - length
-
-    # flag of 2 means only 4th quad case
-    if possible_flag == 2:
-        #2. check that next and bas sharing the same x:
-        if next[0]==base[0]:
-            justified_point[0]= base[0]
-            justified_point[1]= base[1]-length
-
-        #3. check that next and bas sharing the same y:
-        elif next[1]==base[1]:
-            justified_point[1]= base[1]
-            justified_point[0]=base[0]-length
-
-    # flag of 1 means only 1st quad case
-    if possible_flag == 1:
+    # formation is being built in 1st quad
+    if quad_flag == 1:
         #2. check that next and bas sharing the same x:
         if next[0]==base[0]:
             justified_point[0]= base[0]
@@ -323,8 +294,44 @@ def justify_distance(next,base,length):
             justified_point[1]= base[1]
             justified_point[0]= base[0] + length
 
-    # flag of zero means we need to set another leader
-    if possible_flag == 0:
+    # formation is being built in 2nd quad
+    if quad_flag == 2:
+        #2. check that next and bas sharing the same x:
+        if next[0]==base[0]:
+            justified_point[0]= base[0]
+            justified_point[1]= base[1] + length
+
+        #3. check that next and bas sharing the same y:
+        elif next[1]==base[1]:
+            justified_point[1]= base[1]
+            justified_point[0]= base[0] - length
+
+    # formation is being built in 3rd quad
+    if quad_flag == 3:
+        #2. check that next and bas sharing the same x:
+        if next[0]==base[0]:
+            justified_point[0]= base[0]
+            justified_point[1]= base[1] - length
+
+        #3. check that next and bas sharing the same y:
+        elif next[1]==base[1]:
+            justified_point[1]= base[1]
+            justified_point[0]= base[0] - length
+
+    # formation is being built in 4th quad
+    if quad_flag == 4:
+        #2. check that next and bas sharing the same x:
+        if next[0]==base[0]:
+            justified_point[0]= base[0]
+            justified_point[1]= base[1] - length
+
+        #3. check that next and bas sharing the same y:
+        elif next[1]==base[1]:
+            justified_point[1]= base[1]
+            justified_point[0]= base[0] + length
+
+    # flag of zero means that formation is absolutely not possible
+    if quad_flag == 0:
         rospy.logerr('Formation will not be possible. Reset leader or restart system')
         while 1:
             continue
@@ -626,7 +633,7 @@ def final():
     
     if ( shapes != '' ) and ( final_finish_flag != 1):
         if (R.status==1): #leader
-            global x1 ,y1,rob1_goal_x ,rob1_goal_y,rob1_goal_x_px ,rob1_goal_y_px, leader_calc_flag
+            global x1 ,y1,rob1_goal_x ,rob1_goal_y,rob1_goal_x_px ,rob1_goal_y_px, leader_calc_flag, R1_gx_cm, R1_gy_cm
             rospy.loginfo('Robot {} started the main leader function'.format(R.ID))
 
             # creating a leader flag publisher to raise the flag after leader has finished it's procedure
@@ -638,7 +645,7 @@ def final():
 
                 #if leader has a new position set the position to be added
                 #into the calculations as the new position
-                if ((R1_gx_cm > 0) and (R1_gy_cm > 0)):
+                if ((R1_gx_cm > 0) or (R1_gy_cm > 0)):
                     rospy.loginfo('Leader needs to move. Will make calculations')
                     time.sleep(system_latency)
 
