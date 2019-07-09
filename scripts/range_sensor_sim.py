@@ -186,7 +186,7 @@ if __name__ == '__main__':
         time.sleep(system_latency)
 
         # initialize publisher
-        leaderPub = rospy.Publisher('potential_leader', Int32, queue_size=5)
+        leaderPub = rospy.Publisher('potential_leader', Int32, latch=True, queue_size=5)
         rangePub = rospy.Publisher('inrange_count', Int32MultiArray, queue_size=10)
 
         # run the checking algorithm once
@@ -194,7 +194,7 @@ if __name__ == '__main__':
         check_in_range_rob2()
         check_in_range_rob3()
         check_in_range_rob4()
-
+        
         # the main function of the node    
         check_leader()
 
